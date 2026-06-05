@@ -374,3 +374,41 @@ def cancel_booking(
             slot.booked_count -= 1
         db.commit()
     return {"status": "cancelled"}
+
+
+# ── GDPR: data erasure request ────────────────────────────────
+
+@router.post("/api/gdpr/erase")
+def erase_personal_data(
+    payload: dict,
+    db: Session = Depends(get_db),
+):
+    """
+    GDPR right-to-erasure endpoint.
+    Anonymises all slot bookings matching the given email.
+    Does not require auth — email acts as the credential.
+    """
+    email = (payload.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(400, "Email required")
+
+    bookings = db.query(SlotBooking).filter(
+        SlotBooking.email == email
+    ).all()
+
+    if not bookings:
+        # Don't reveal whether email exists
+        return {"status": "ok", "erased": 0}
+
+    count = 0
+    for b in bookings:
+        b.first_name = "Deleted"
+        b.last_name  = "User"
+        b.email      = f"deleted_{b.id}@erased.invalid"
+        b.phone      = None
+        b.notes      = None
+        b.cancelled  = True
+        count += 1
+
+    db.commit()
+    return {"status": "ok", "erased": count}

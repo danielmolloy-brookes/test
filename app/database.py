@@ -45,6 +45,7 @@ def init_db():
     _run_migrations()
     _run_mobile_migrations()
     _run_booking_migrations()
+    _run_totp_migrations()
 
     # Ensure QR code directory exists
     os.makedirs(settings.QR_CODE_DIR, exist_ok=True)
@@ -410,4 +411,21 @@ def _run_booking_migrations():
             conn.execute(text("CREATE INDEX ix_slot_bookings_slot_id  ON slot_bookings (slot_id)"))
             conn.execute(text("CREATE INDEX ix_slot_bookings_email     ON slot_bookings (email)"))
             conn.execute(text("CREATE INDEX ix_slot_bookings_ticket_id ON slot_bookings (ticket_id)"))
+            conn.commit()
+
+
+def _run_totp_migrations():
+    """2FA TOTP columns on users table."""
+    from sqlalchemy import text, inspect
+    insp = inspect(engine)
+    with engine.connect() as conn:
+        user_cols = [c["name"] for c in insp.get_columns("users")]
+        if "totp_secret" not in user_cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64)"))
+            conn.commit()
+        if "totp_enabled" not in user_cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT 0"))
+            conn.commit()
+        if "totp_backup_codes" not in user_cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN totp_backup_codes TEXT"))
             conn.commit()

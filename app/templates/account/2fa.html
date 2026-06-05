@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Two-factor authentication settings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body class="min-h-screen bg-slate-900 text-white flex items-center justify-center px-4"
+      x-data="twoFASettings()" x-init="init()">
+
+  <div class="w-full max-w-md space-y-6">
+
+    <!-- Header -->
+    <div class="text-center">
+      <div class="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-shield-alt text-2xl text-indigo-400"></i>
+      </div>
+      <h1 class="text-2xl font-bold">Two-factor authentication</h1>
+      <p class="text-slate-400 text-sm mt-1">Protect your account with an authenticator app</p>
+    </div>
+
+    <!-- Already enabled -->
+    <template x-if="isEnabled && step === 'idle'">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center">
+            <i class="fas fa-check text-emerald-400 text-sm"></i>
+          </div>
+          <div>
+            <p class="font-semibold">2FA is enabled</p>
+            <p class="text-xs text-slate-400">Your account is protected</p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Enter your password to disable 2FA</label>
+          <input x-model="disablePassword" type="password"
+            class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500"
+            placeholder="Your password"/>
+        </div>
+        <div x-show="errorMsg" class="text-red-400 text-sm" x-text="errorMsg"></div>
+        <button @click="disable()" :disabled="submitting"
+          class="w-full bg-red-600/80 hover:bg-red-600 transition font-semibold rounded-xl py-2.5 text-sm disabled:opacity-60">
+          <span x-text="submitting ? 'Disabling…' : 'Disable 2FA'"></span>
+        </button>
+        <a href="/dashboard" class="block text-center text-xs text-slate-500 hover:text-slate-300 transition">← Back</a>
+      </div>
+    </template>
+
+    <!-- Not enabled: start setup -->
+    <template x-if="!isEnabled && step === 'idle'">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-4">
+        <p class="text-sm text-slate-400">
+          You'll need an authenticator app such as
+          <strong class="text-white">Google Authenticator</strong>,
+          <strong class="text-white">Authy</strong>, or
+          <strong class="text-white">Apple Passwords</strong>.
+        </p>
+        <button @click="startSetup()" :disabled="submitting"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 transition font-semibold rounded-xl py-3 text-sm disabled:opacity-60">
+          <span x-text="submitting ? 'Loading…' : 'Set up 2FA'"></span>
+        </button>
+        <a href="/dashboard" class="block text-center text-xs text-slate-500 hover:text-slate-300 transition">← Back</a>
+      </div>
+    </template>
+
+    <!-- Step: scan QR -->
+    <template x-if="step === 'scan'">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-5">
+        <div>
+          <p class="font-semibold mb-1">Step 1 — Scan this QR code</p>
+          <p class="text-xs text-slate-400">Open your authenticator app and scan the code below.</p>
+        </div>
+        <div class="flex justify-center">
+          <img :src="qrDataUrl" class="w-48 h-48 rounded-xl border-4 border-white" alt="QR code"/>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500 mb-1">Can't scan? Enter this key manually:</p>
+          <p class="font-mono text-xs bg-slate-700 rounded-lg px-3 py-2 tracking-widest text-center break-all" x-text="secret"></p>
+        </div>
+        <div>
+          <p class="font-semibold mb-1">Step 2 — Enter the 6-digit code</p>
+          <input x-model="verifyCode" type="text" inputmode="numeric" maxlength="6" autofocus
+            class="w-full bg-slate-700 border border-slate-600 rounded-xl px-4 py-3 text-center text-2xl font-mono tracking-widest focus:outline-none focus:border-indigo-500"
+            placeholder="000000"/>
+        </div>
+        <div x-show="errorMsg" class="text-red-400 text-sm" x-text="errorMsg"></div>
+        <button @click="verify()" :disabled="submitting"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 transition font-semibold rounded-xl py-3 text-sm disabled:opacity-60">
+          <span x-text="submitting ? 'Verifying…' : 'Confirm & enable'"></span>
+        </button>
+      </div>
+    </template>
+
+    <!-- Step: backup codes -->
+    <template x-if="step === 'backup'">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 space-y-5">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+            <i class="fas fa-check text-emerald-400 text-sm"></i>
+          </div>
+          <div>
+            <p class="font-semibold">2FA enabled successfully!</p>
+            <p class="text-xs text-slate-400">Save your backup codes — you'll need these if you lose your phone</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-700 rounded-xl p-4">
+          <div class="grid grid-cols-2 gap-2">
+            <template x-for="code in backupCodes" :key="code">
+              <p class="font-mono text-sm text-center bg-slate-800 rounded-lg py-1.5 tracking-widest" x-text="code"></p>
+            </template>
+          </div>
+        </div>
+
+        <p class="text-xs text-amber-400 flex items-start gap-2">
+          <i class="fas fa-exclamation-triangle mt-0.5 shrink-0"></i>
+          Each backup code can only be used once. Store them somewhere safe — they won't be shown again.
+        </p>
+
+        <button @click="copyBackupCodes()"
+          class="w-full bg-slate-700 hover:bg-slate-600 transition font-semibold rounded-xl py-2.5 text-sm">
+          <i class="fas fa-copy mr-1"></i> Copy all codes
+        </button>
+
+        <a href="/dashboard"
+          class="block w-full text-center bg-indigo-600 hover:bg-indigo-700 transition font-semibold rounded-xl py-3 text-sm">
+          Done — go to dashboard
+        </a>
+      </div>
+    </template>
+
+  </div>
+
+<script>
+function twoFASettings() {
+  return {
+    isEnabled:       {{ 'true' if totp_enabled else 'false' }},
+    step:            'idle',
+    secret:          '',
+    qrDataUrl:       '',
+    verifyCode:      '',
+    backupCodes:     [],
+    disablePassword: '',
+    errorMsg:        '',
+    submitting:      false,
+
+    init() {},
+
+    async startSetup() {
+      this.submitting = true;
+      this.errorMsg   = '';
+      try {
+        const res  = await fetch('/account/2fa/setup', { method: 'POST', credentials: 'same-origin' });
+        const data = await res.json();
+        this.secret    = data.secret;
+        this.qrDataUrl = data.qr_data_url;
+        this.step      = 'scan';
+      } catch (e) {
+        this.errorMsg = 'Failed to start setup';
+      } finally {
+        this.submitting = false;
+      }
+    },
+
+    async verify() {
+      this.submitting = true;
+      this.errorMsg   = '';
+      try {
+        const res = await fetch('/account/2fa/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ secret: this.secret, code: this.verifyCode }),
+        });
+        const data = await res.json();
+        if (!res.ok) { this.errorMsg = data.detail || 'Invalid code'; return; }
+        this.backupCodes = data.backup_codes;
+        this.isEnabled   = true;
+        this.step        = 'backup';
+      } catch (e) {
+        this.errorMsg = 'Network error';
+      } finally {
+        this.submitting = false;
+      }
+    },
+
+    async disable() {
+      this.submitting = true;
+      this.errorMsg   = '';
+      try {
+        const res = await fetch('/account/2fa/disable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ password: this.disablePassword }),
+        });
+        const data = await res.json();
+        if (!res.ok) { this.errorMsg = data.detail || 'Failed'; return; }
+        this.isEnabled   = false;
+        this.disablePassword = '';
+      } catch (e) {
+        this.errorMsg = 'Network error';
+      } finally {
+        this.submitting = false;
+      }
+    },
+
+    copyBackupCodes() {
+      navigator.clipboard.writeText(this.backupCodes.join('\n'));
+      alert('Backup codes copied!');
+    },
+  };
+}
+</script>
+</body>
+</html>

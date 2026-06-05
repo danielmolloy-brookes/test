@@ -29,6 +29,7 @@ from app.routers import (
     profile_router,
     booking_router,
 )
+from app.routers import totp_router
 
 # ── Logging ──────────────────────────────────────────────────
 logging.basicConfig(
@@ -84,6 +85,7 @@ app.include_router(orgs_router.router)
 app.include_router(mobile_router.router)
 app.include_router(mobile_admin_router.router)
 app.include_router(booking_router.router)
+app.include_router(totp_router.router)
 # ⚠️  Must be last — /{ticket_id} is a catch-all path
 app.include_router(profile_router.router)
 

@@ -140,10 +140,32 @@
             placeholder="Anything we should know…"></textarea>
         </div>
 
+        <!-- Privacy notice -->
+        <div class="bg-slate-700/40 border border-slate-600/50 rounded-xl px-4 py-4 text-xs text-slate-400 space-y-2">
+          <p class="font-semibold text-slate-300 flex items-center gap-1.5"><i class="fas fa-shield-alt text-indigo-400"></i> How we use your information</p>
+          <p>We use your information to:</p>
+          <ul class="list-disc list-inside space-y-1 text-slate-500">
+            <li>Process and manage your event registration</li>
+            <li>Communicate essential event information and updates</li>
+            <li>Manage venue access and B2B introductions where requested</li>
+            <li>Meet reporting requirements linked to partners or funders</li>
+            <li>Improve future events and related programmes</li>
+          </ul>
+          <p>The lawful basis for this processing is <strong class="text-slate-300">contractual necessity</strong> and our <strong class="text-slate-300">legitimate interests</strong> in managing and improving the event. If you do not provide the required information, you will not be able to attend.</p>
+          <p>To request deletion of your data, email us or contact the event organiser.</p>
+        </div>
+
+        <!-- Consent checkbox -->
+        <label class="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" x-model="consent" required
+            class="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-800 text-indigo-500 focus:ring-indigo-500 shrink-0"/>
+          <span class="text-xs text-slate-400">I have read and understood how my information will be used. <span class="text-red-400">*</span></span>
+        </label>
+
         <!-- Error -->
         <div x-show="formError" class="text-red-400 text-sm bg-red-900/20 border border-red-700/40 rounded-lg px-4 py-2.5" x-text="formError"></div>
 
-        <button type="submit" :disabled="submitting"
+        <button type="submit" :disabled="submitting || !consent"
           class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition text-white font-semibold rounded-xl py-3.5 text-sm flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-indigo-900/40">
           <span x-show="submitting" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
           <span x-text="submitting ? 'Booking…' : 'Confirm booking'"></span>
@@ -173,6 +195,7 @@ function bookingApp() {
     error:        '',
     selectedSlot: null,
     form:         { first_name:'', last_name:'', email:'', phone:'', notes:'' },
+    consent:      false,
     formError:    '',
     submitting:   false,
     submitted:    false,

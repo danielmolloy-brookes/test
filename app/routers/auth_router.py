@@ -52,6 +52,13 @@ async def login_submit(
             status_code=401,
         )
 
+    # If 2FA is enabled, redirect to 2FA challenge instead of issuing token
+    if user.totp_enabled:
+        return templates.TemplateResponse(
+            "login_2fa.html",
+            {"request": request, "username": username},
+        )
+
     token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),

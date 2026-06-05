@@ -39,6 +39,10 @@ class User(Base):
     display_name  = Column(String(100))
     org_id        = Column(Integer, ForeignKey("organisations.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
+    # 2FA
+    totp_secret   = Column(String(64), nullable=True)
+    totp_enabled  = Column(Boolean, default=False, nullable=False)
+    totp_backup_codes = Column(Text, nullable=True)  # JSON list of hashed backup codes
 
     org = relationship("Organisation", back_populates="users")
 
