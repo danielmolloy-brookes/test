@@ -33,9 +33,33 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
+def create_pending_token(username: str) -> str:
+    """Short-lived token issued after password check, before 2FA is verified."""
+    expire = datetime.utcnow() + timedelta(minutes=10)
+    return jwt.encode(
+        {"sub": username, "type": "pending_2fa", "exp": expire},
+        settings.SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
+
+
 def decode_token(token: str) -> Optional[str]:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        # Reject pending tokens — they must not grant full access
+        if payload.get("type") == "pending_2fa":
+            return None
+        return payload.get("sub")
+    except JWTError:
+        return None
+
+
+def decode_pending_token(token: str) -> Optional[str]:
+    """Decode a pending_2fa token — returns username or None."""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "pending_2fa":
+            return None
         return payload.get("sub")
     except JWTError:
         return None
@@ -91,12 +115,20 @@ def _login_redirect() -> RedirectResponse:
     return resp
 
 
+def _2fa_setup_redirect() -> RedirectResponse:
+    """Redirect to 2FA setup when user hasn't configured it yet."""
+    return RedirectResponse(url="/account/2fa-gate", status_code=303)
+
+
 def require_login(request: Request, db: Session = Depends(get_db)) -> User:
-    """Page dependency — redirects to /login on failure."""
+    """Page dependency — redirects to /login on failure, /account/2fa-gate if 2FA not set up."""
     try:
-        return get_current_user_from_cookie(request, db)
+        user = get_current_user_from_cookie(request, db)
     except HTTPException:
         return _login_redirect()
+    if not user.totp_enabled:
+        return _2fa_setup_redirect()
+    return user
 
 
 def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
@@ -105,6 +137,8 @@ def require_admin(request: Request, db: Session = Depends(get_db)) -> User:
         user = get_current_user_from_cookie(request, db)
     except HTTPException:
         return _login_redirect()
+    if not user.totp_enabled:
+        return _2fa_setup_redirect()
     if not user.is_admin:
         return RedirectResponse(url="/checkin-home", status_code=303)
     return user
@@ -116,6 +150,8 @@ def require_developer(request: Request, db: Session = Depends(get_db)) -> User:
         user = get_current_user_from_cookie(request, db)
     except HTTPException:
         return _login_redirect()
+    if not user.totp_enabled:
+        return _2fa_setup_redirect()
     if not user.is_developer:
         return RedirectResponse(url="/dashboard", status_code=303)
     return user
@@ -135,6 +171,8 @@ def require_admin_api(
     user = db.query(User).filter(User.username == username).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if not user.totp_enabled:
+        raise HTTPException(status_code=403, detail="2FA setup required")
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
@@ -154,6 +192,8 @@ def require_developer_api(
     user = db.query(User).filter(User.username == username).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if not user.totp_enabled:
+        raise HTTPException(status_code=403, detail="2FA setup required")
     if not user.is_developer:
         raise HTTPException(status_code=403, detail="Developer access required")
     return user

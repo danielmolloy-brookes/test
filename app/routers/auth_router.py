@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.auth import create_access_token, decode_token, verify_password
+from app.auth import create_access_token, create_pending_token, decode_token, verify_password
 from app.config import settings
 from app.database import get_db
 from app.models import User
@@ -52,31 +52,10 @@ async def login_submit(
             status_code=401,
         )
 
-    # If 2FA is enabled, redirect to 2FA challenge instead of issuing token
-    if user.totp_enabled:
-        return templates.TemplateResponse(
-            "login_2fa.html",
-            {"request": request, "username": username},
-        )
-
-    token = create_access_token(
-        data={"sub": user.username},
-        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
-    if user.is_developer:
-        landing = "/admin/organisations"
-    elif user.is_org_admin:
-        landing = "/dashboard"
-    else:
-        landing = "/checkin-home"
-    resp = RedirectResponse(url=landing, status_code=303)
-    resp.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        samesite="lax",
-    )
+    # Always issue a short-lived pending token — full token only granted after 2FA
+    pending = create_pending_token(user.username)
+    resp = RedirectResponse(url="/account/2fa-gate", status_code=303)
+    resp.set_cookie("pending_2fa", pending, httponly=True, samesite="lax", max_age=600)
     return resp
 
 
