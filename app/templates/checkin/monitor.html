@@ -163,7 +163,7 @@
               <p x-show="entry.notes" class="text-xs text-slate-400 italic mt-0.5" x-text="entry.notes"></p>
             </div>
 
-            <!-- Time + issue button -->
+            <!-- Time + buttons -->
             <div class="flex flex-col items-end gap-2 flex-shrink-0">
               <p class="text-xs text-slate-500" x-text="formatTime(entry.scanned_at)"></p>
               <button @click="issueBadge(entry)"
@@ -171,6 +171,16 @@
                        bg-slate-700 hover:bg-emerald-700 text-slate-300 hover:text-white border border-slate-600 hover:border-emerald-600 active:scale-95">
                 <i class="fas fa-check"></i> Badge Issued
               </button>
+              {% if event.profile_consent_enabled %}
+              <button @click="toggleConsent(entry)"
+                :class="consentState(entry)
+                  ? 'bg-indigo-700 border-indigo-500 text-white'
+                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-indigo-700 hover:border-indigo-500 hover:text-white'"
+                class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all border active:scale-95">
+                <i class="fas fa-user-check"></i>
+                <span x-text="consentState(entry) ? 'Profile Shared' : 'Share Profile'"></span>
+              </button>
+              {% endif %}
             </div>
           </div>
         </template>
@@ -217,11 +227,17 @@
               <p x-show="entry.company" class="text-xs text-slate-500 truncate" x-text="entry.company"></p>
             </div>
 
-            <!-- Issued indicator + undo -->
+            <!-- Issued indicator + undo + consent -->
             <div class="flex items-center gap-2 flex-shrink-0">
               <span class="text-xs text-emerald-600 flex items-center gap-1">
                 <i class="fas fa-check-circle"></i>
               </span>
+              {% if event.profile_consent_enabled %}
+              <span :class="consentState(entry) ? 'text-indigo-400' : 'text-slate-700'"
+                    class="text-xs" title="Profile consent">
+                <i class="fas fa-user-check"></i>
+              </span>
+              {% endif %}
               <button @click="undoBadge(entry)" title="Undo"
                 class="text-slate-600 hover:text-amber-400 transition-colors text-xs p-1 rounded hover:bg-slate-700">
                 <i class="fas fa-undo"></i>
@@ -241,11 +257,12 @@
 <script>
 function monitorApp(eventId) {
   return {
-    activity:  [],
-    stats:     { total: 0, checked_in: 0 },
-    connected: true,
-    _badgeState: {},
-    _lastId: 0,
+    activity:      [],
+    stats:         { total: 0, checked_in: 0 },
+    connected:     true,
+    _badgeState:   {},
+    _consentState: {},
+    _lastId:       0,
 
     get invalid() {
       return this.activity.filter(e => e.result === 'not_found' || e.result === 'wrong_event');
@@ -307,6 +324,13 @@ function monitorApp(eventId) {
         const s = { ...this._badgeState };
         delete s[data.attendee_id];
         this._badgeState = s;
+      } else if (data.type === 'profile_consent') {
+        this.activity = this.activity.map(e =>
+          e.attendee_id === data.attendee_id ? { ...e, profile_consent: data.profile_consent } : e
+        );
+        const s = { ...this._consentState };
+        delete s[data.attendee_id];
+        this._consentState = s;
       } else if (data.type === 'log_deleted') {
         this.activity = this.activity.filter(e => e.id !== data.log_id);
       }
@@ -373,6 +397,20 @@ function monitorApp(eventId) {
         await fetch(`/api/attendees/${entry.attendee_id}/badge-issued`, { method: 'POST' });
       } catch (e) {
         this._badgeState = { ...this._badgeState, [entry.attendee_id]: true };
+      }
+    },
+
+    consentState(entry) {
+      return this._consentState[entry.attendee_id] ?? entry.profile_consent;
+    },
+
+    async toggleConsent(entry) {
+      const current = this.consentState(entry);
+      this._consentState = { ...this._consentState, [entry.attendee_id]: !current };
+      try {
+        await fetch(`/api/attendees/${entry.attendee_id}/profile-consent`, { method: 'POST' });
+      } catch(e) {
+        this._consentState = { ...this._consentState, [entry.attendee_id]: current };
       }
     },
 

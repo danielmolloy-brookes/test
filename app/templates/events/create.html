@@ -238,6 +238,22 @@
         :value="folderChoice === '__new__' ? '' : folderChoice" />
     </div>
 
+    <!-- Profile consent feature toggle -->
+    <div class="card p-4 flex items-center justify-between gap-4">
+      <div>
+        <p class="text-sm font-semibold flex items-center gap-2">
+          <i class="fas fa-user-check text-indigo-400"></i> Profile sharing consent
+        </p>
+        <p class="text-xs text-slate-400 mt-0.5">When enabled, a consent button appears on the check-in monitor and guest list. Profiles are hidden until consent is given.</p>
+      </div>
+      <label class="relative inline-flex items-center cursor-pointer shrink-0">
+        <input type="checkbox" name="profile_consent_enabled" value="1"
+          {% if event and event.profile_consent_enabled %}checked{% endif %}
+          class="sr-only peer"/>
+        <div class="w-11 h-6 bg-slate-600 peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+      </label>
+    </div>
+
     <!-- Actions -->
     <div class="flex items-center gap-3">
       <button type="submit" class="btn-primary px-6 py-2.5">

@@ -107,6 +107,8 @@ class Event(Base):
     booking_enabled            = Column(Boolean, default=False, nullable=False)
     slot_duration_mins         = Column(Integer, default=30, nullable=False)
     slot_capacity              = Column(Integer, default=1, nullable=False)
+    # Profile sharing consent feature
+    profile_consent_enabled    = Column(Boolean, default=False, nullable=False)
     created_at                 = Column(DateTime, default=datetime.utcnow)
 
     folder    = relationship("EventFolder", back_populates="events")
@@ -137,6 +139,7 @@ class Attendee(Base):
     checked_out    = Column(Boolean, default=False, nullable=False)
     checked_out_at = Column(DateTime, nullable=True)
     is_vip         = Column(Boolean, default=False, nullable=False)
+    profile_consent = Column(Boolean, default=False, nullable=False)
     badge_issued   = Column(Boolean, default=False, nullable=False)
     badge_issued_at = Column(DateTime, nullable=True)
     notes          = Column(Text, nullable=True)

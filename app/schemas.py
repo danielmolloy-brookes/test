@@ -111,6 +111,7 @@ class AttendeeOut(BaseModel):
     checked_out: bool = False
     checked_out_at: Optional[datetime] = None
     is_vip: bool = False
+    profile_consent: bool = False
     badge_issued: bool = False
     badge_issued_at: Optional[datetime] = None
     notes: Optional[str] = None

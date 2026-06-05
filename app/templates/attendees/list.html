@@ -228,6 +228,16 @@
             }"></span>
         </div>
 
+        <!-- Profile consent toggle (only shown if feature enabled) -->
+        {% if event.profile_consent_enabled %}
+        <button @click.stop="toggleConsent(a)"
+          :class="a.profile_consent ? 'text-indigo-400 bg-indigo-900/30' : 'text-slate-500 hover:text-indigo-400 hover:bg-slate-700'"
+          class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition"
+          :title="a.profile_consent ? 'Profile shared — click to withdraw consent' : 'Click to grant profile sharing consent'">
+          <i class="fas fa-user-check text-xs"></i>
+        </button>
+        {% endif %}
+
         <!-- Edit button -->
         <button @click.stop="openEdit(a)"
           class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-400 hover:bg-slate-700 transition"
@@ -264,6 +274,17 @@ function guestListApp(eventId) {
       this.editForm   = { first_name: a.first_name||'', last_name: a.last_name||'', email: a.email||'', phone: a.phone||'', company: a.company||'', notes: a.notes||'', is_vip: !!a.is_vip };
       this.editError  = '';
       this.editOpen   = true;
+    },
+
+    async toggleConsent(a) {
+      const prev = a.profile_consent;
+      a.profile_consent = !prev;
+      try {
+        const res = await fetch(`/api/attendees/${a.id}/profile-consent`, {
+          method: 'POST', credentials: 'same-origin',
+        });
+        if (!res.ok) { a.profile_consent = prev; }
+      } catch(e) { a.profile_consent = prev; }
     },
 
     async saveEdit() {

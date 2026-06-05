@@ -45,6 +45,7 @@ def init_db():
     _run_migrations()
     _run_mobile_migrations()
     _run_booking_migrations()
+    _run_consent_migrations()
     _run_totp_migrations()
 
     # Ensure QR code directory exists
@@ -411,6 +412,21 @@ def _run_booking_migrations():
             conn.execute(text("CREATE INDEX ix_slot_bookings_slot_id  ON slot_bookings (slot_id)"))
             conn.execute(text("CREATE INDEX ix_slot_bookings_email     ON slot_bookings (email)"))
             conn.execute(text("CREATE INDEX ix_slot_bookings_ticket_id ON slot_bookings (ticket_id)"))
+            conn.commit()
+
+
+def _run_consent_migrations():
+    """Profile sharing consent feature migrations."""
+    from sqlalchemy import text, inspect
+    insp = inspect(engine)
+    with engine.connect() as conn:
+        event_cols = [c["name"] for c in insp.get_columns("events")]
+        if "profile_consent_enabled" not in event_cols:
+            conn.execute(text("ALTER TABLE events ADD COLUMN profile_consent_enabled BOOLEAN NOT NULL DEFAULT 0"))
+            conn.commit()
+        attendee_cols = [c["name"] for c in insp.get_columns("attendees")]
+        if "profile_consent" not in attendee_cols:
+            conn.execute(text("ALTER TABLE attendees ADD COLUMN profile_consent BOOLEAN NOT NULL DEFAULT 0"))
             conn.commit()
 
 

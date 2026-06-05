@@ -43,6 +43,7 @@ def _fmt_log(log: ScanLog, attendee: Optional[Attendee]) -> dict:
         "company":          attendee.company    if attendee else None,
         "is_vip":           bool(attendee.is_vip)      if attendee else False,
         "badge_issued":     bool(attendee.badge_issued) if attendee else False,
+        "profile_consent":  bool(attendee.profile_consent) if attendee else False,
         "notes":            attendee.notes      if attendee else None,
         "scanned_ticket_id":log.scanned_ticket_id,
     }
@@ -396,6 +397,7 @@ async def checkin_activity(
             "company": attendee.company if attendee else None,
             "is_vip": bool(attendee.is_vip) if attendee else False,
             "badge_issued": bool(attendee.badge_issued) if attendee else False,
+            "profile_consent": bool(attendee.profile_consent) if attendee else False,
             "notes": attendee.notes if attendee else None,
             "scanned_ticket_id": log.scanned_ticket_id,
         }
@@ -448,6 +450,28 @@ async def toggle_badge_issued(
         "stats": _get_stats(attendee.event_id, db),
     })
     return {"ok": True, "badge_issued": bool(attendee.badge_issued)}
+
+
+@router.post("/api/attendees/{attendee_id}/profile-consent")
+async def toggle_profile_consent(
+    attendee_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_api),
+):
+    """Toggle profile sharing consent for an attendee."""
+    attendee = db.query(Attendee).filter(Attendee.id == attendee_id).first()
+    if not attendee:
+        raise HTTPException(status_code=404, detail="Attendee not found")
+    if not check_event_access(current_user, attendee.event_id, db):
+        raise HTTPException(status_code=403, detail="Access denied.")
+    attendee.profile_consent = not attendee.profile_consent
+    db.commit()
+    await broadcaster.publish(attendee.event_id, {
+        "type": "profile_consent",
+        "attendee_id": attendee.id,
+        "profile_consent": bool(attendee.profile_consent),
+    })
+    return {"ok": True, "profile_consent": bool(attendee.profile_consent)}
 
 
 @router.get("/checkout/{event_id}", response_class=HTMLResponse)
