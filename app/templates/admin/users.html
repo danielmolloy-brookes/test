@@ -153,11 +153,27 @@
             <!-- Dropdown -->
             <div x-show="open" x-cloak @click.away="open = false"
               class="absolute right-0 mt-8 w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-10 py-1">
+              {% if u.role != 'developer' %}
               <button @click="changeRole('{{ 'checkin' if u.role == 'admin' else 'admin' }}'); open=false"
                 class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2">
                 <i class="fas fa-exchange-alt w-3"></i>
                 Switch to {{ 'Check-In' if u.role == 'admin' else 'Admin' }}
               </button>
+              {% endif %}
+              {% if user and user.is_developer and u.role != 'developer' %}
+              <button @click="changeRole('developer'); open=false"
+                class="w-full text-left px-4 py-2 text-xs text-purple-400 hover:bg-purple-900/20 flex items-center gap-2">
+                <i class="fas fa-code w-3"></i>
+                Promote to Developer
+              </button>
+              {% endif %}
+              {% if user and user.is_developer and u.role == 'developer' %}
+              <button @click="changeRole('admin'); open=false"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2">
+                <i class="fas fa-exchange-alt w-3"></i>
+                Switch to Admin
+              </button>
+              {% endif %}
               <button @click="resetPw = true; open = false"
                 class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2">
                 <i class="fas fa-key w-3"></i>
