@@ -421,6 +421,9 @@ def _run_consent_migrations():
     insp = inspect(engine)
     with engine.connect() as conn:
         event_cols = [c["name"] for c in insp.get_columns("events")]
+        if "profiles_disabled" not in event_cols:
+            conn.execute(text("ALTER TABLE events ADD COLUMN profiles_disabled BOOLEAN NOT NULL DEFAULT 0"))
+            conn.commit()
         if "profile_consent_enabled" not in event_cols:
             conn.execute(text("ALTER TABLE events ADD COLUMN profile_consent_enabled BOOLEAN NOT NULL DEFAULT 0"))
             conn.commit()

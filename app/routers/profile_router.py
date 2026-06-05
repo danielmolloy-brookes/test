@@ -38,8 +38,11 @@ def attendee_profile(ticket_id: str, request: Request, db: Session = Depends(get
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # If the event requires consent and attendee hasn't consented, show private page
-    profile_private = event.profile_consent_enabled and not attendee.profile_consent
+    # Profile is private if: profiles disabled entirely, OR consent required but not given
+    profile_private = (
+        event.profiles_disabled or
+        (event.profile_consent_enabled and not attendee.profile_consent)
+    )
 
     return templates.TemplateResponse(
         "profile.html",

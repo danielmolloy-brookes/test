@@ -108,6 +108,7 @@ class Event(Base):
     slot_duration_mins         = Column(Integer, default=30, nullable=False)
     slot_capacity              = Column(Integer, default=1, nullable=False)
     # Profile sharing consent feature
+    profiles_disabled          = Column(Boolean, default=False, nullable=False)
     profile_consent_enabled    = Column(Boolean, default=False, nullable=False)
     created_at                 = Column(DateTime, default=datetime.utcnow)
 
