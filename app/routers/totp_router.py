@@ -30,6 +30,39 @@ templates = Jinja2Templates(directory="app/templates")
 APP_NAME = "Smart Event Check-In"
 
 
+# ── Change password ───────────────────────────────────────────
+
+@router.get("/account/password", response_class=HTMLResponse)
+def change_password_page(request: Request, db: Session = Depends(get_db)):
+    user = _get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse("account/password.html", {"request": request, "user": user})
+
+
+@router.post("/api/account/change-password")
+def change_password(
+    request: Request,
+    payload: dict,
+    db: Session = Depends(get_db),
+):
+    user = _get_current_user(request, db)
+    if not user:
+        raise HTTPException(401, "Not authenticated")
+
+    current  = payload.get("current_password", "")
+    new_pass = payload.get("new_password", "")
+
+    if not verify_password(current, user.password_hash):
+        raise HTTPException(400, "Current password is incorrect")
+    if len(new_pass) < 8:
+        raise HTTPException(400, "New password must be at least 8 characters")
+
+    user.password_hash = get_password_hash(new_pass)
+    db.commit()
+    return {"status": "ok"}
+
+
 def _get_current_user(request: Request, db: Session) -> User | None:
     token = request.cookies.get("access_token")
     if not token:
