@@ -22,7 +22,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
+
+limiter = Limiter(key_func=get_remote_address)
 
 from app.auth import require_admin_api
 from app.database import get_db
@@ -143,7 +147,9 @@ def get_slots(event_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/book/{event_id}/reserve")
+@limiter.limit("10/minute")
 def reserve_slot(
+    request: Request,
     event_id: int,
     slot_id: int,
     body: BookingRequest,

@@ -18,9 +18,14 @@ import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
+limiter = Limiter(key_func=get_remote_address)
+
 from app.auth import decode_token, decode_pending_token, create_access_token, verify_password, get_password_hash
+from app.config import settings
 from app.database import get_db, SessionLocal
 from app.models import User
 
@@ -201,7 +206,7 @@ def twofa_verify(
         token = create_access_token({"sub": user.username})
         resp  = JSONResponse({"status": "enabled", "backup_codes": plain_codes, "redirect": "/"})
         resp.set_cookie("access_token", token, httponly=True, samesite="lax",
-                        max_age=60 * 60 * 24 * 30)
+                        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
         resp.delete_cookie("pending_2fa")
         return resp
 
@@ -235,6 +240,7 @@ def twofa_disable(
 # ── Validate code during login ────────────────────────────────
 
 @router.post("/account/2fa/validate")
+@limiter.limit("10/minute")
 def twofa_validate(
     request: Request,
     payload: dict,
