@@ -26,6 +26,77 @@
 {% block content %}
 <div x-data="guestListApp({{ event.id }})" x-init="load()">
 
+  <!-- Edit modal -->
+  <div x-show="editOpen" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center px-4"
+       style="background:rgba(0,0,0,0.7)">
+    <div @click.outside="editOpen=false"
+         class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="font-semibold text-base">Edit attendee</h3>
+        <button @click="editOpen=false" class="text-slate-500 hover:text-white transition"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">First name</label>
+          <input x-model="editForm.first_name" type="text"
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"/>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Last name</label>
+          <input x-model="editForm.last_name" type="text"
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"/>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1">Email</label>
+        <input x-model="editForm.email" type="email"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"/>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Phone</label>
+          <input x-model="editForm.phone" type="tel"
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"/>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Company</label>
+          <input x-model="editForm.company" type="text"
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"/>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1">Notes</label>
+        <textarea x-model="editForm.notes" rows="2"
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+      </div>
+
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" x-model="editForm.is_vip"
+          class="w-4 h-4 rounded border-slate-600 bg-slate-700 text-yellow-500"/>
+        <span class="text-sm text-slate-300"><i class="fas fa-crown text-yellow-400 mr-1"></i>VIP attendee</span>
+      </label>
+
+      <div x-show="editError" class="text-red-400 text-sm" x-text="editError"></div>
+
+      <div class="flex gap-2 pt-1">
+        <button @click="editOpen=false"
+          class="flex-1 bg-slate-700 hover:bg-slate-600 transition rounded-xl py-2.5 text-sm font-medium">
+          Cancel
+        </button>
+        <button @click="saveEdit()" :disabled="editSaving"
+          class="flex-1 bg-indigo-600 hover:bg-indigo-700 transition rounded-xl py-2.5 text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
+          <span x-show="editSaving" class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+          <span x-text="editSaving ? 'Saving…' : 'Save changes'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Search + filter bar -->
   <div class="mb-4 space-y-3">
 
@@ -157,6 +228,13 @@
             }"></span>
         </div>
 
+        <!-- Edit button -->
+        <button @click.stop="openEdit(a)"
+          class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-400 hover:bg-slate-700 transition"
+          title="Edit attendee">
+          <i class="fas fa-pencil-alt text-xs"></i>
+        </button>
+
       </div>
     </template>
   </div>
@@ -173,6 +251,43 @@ function guestListApp(eventId) {
     search:    '',
     filter:    'all',
     _es:       null,
+
+    // Edit modal state
+    editOpen:    false,
+    editSaving:  false,
+    editError:   '',
+    editingId:   null,
+    editForm:    { first_name:'', last_name:'', email:'', phone:'', company:'', notes:'', is_vip: false },
+
+    openEdit(a) {
+      this.editingId  = a.id;
+      this.editForm   = { first_name: a.first_name||'', last_name: a.last_name||'', email: a.email||'', phone: a.phone||'', company: a.company||'', notes: a.notes||'', is_vip: !!a.is_vip };
+      this.editError  = '';
+      this.editOpen   = true;
+    },
+
+    async saveEdit() {
+      this.editSaving = true;
+      this.editError  = '';
+      try {
+        const res = await fetch(`/api/attendees/${this.editingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(this.editForm),
+        });
+        const data = await res.json();
+        if (!res.ok) { this.editError = data.detail || 'Save failed'; return; }
+        // Update in-place
+        const idx = this.attendees.findIndex(a => a.id === this.editingId);
+        if (idx !== -1) Object.assign(this.attendees[idx], data);
+        this.editOpen = false;
+      } catch (e) {
+        this.editError = 'Network error — please try again';
+      } finally {
+        this.editSaving = false;
+      }
+    },
 
     tabs: [
       {

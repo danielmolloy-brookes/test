@@ -159,6 +159,27 @@ async def add_attendee(
     return attendee
 
 
+@router.patch("/api/attendees/{attendee_id}", response_model=AttendeeOut)
+async def update_attendee(
+    attendee_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_api),
+):
+    attendee = db.query(Attendee).filter(Attendee.id == attendee_id).first()
+    if not attendee:
+        raise HTTPException(status_code=404, detail="Attendee not found")
+
+    editable = ["first_name", "last_name", "email", "phone", "company", "notes", "is_vip"]
+    for field in editable:
+        if field in payload:
+            setattr(attendee, field, payload[field])
+
+    db.commit()
+    db.refresh(attendee)
+    return attendee
+
+
 @router.delete("/api/attendees/{attendee_id}")
 async def delete_attendee(
     attendee_id: int,
