@@ -59,7 +59,13 @@ app.add_middleware(
 # ── Static files ─────────────────────────────────────────────
 os.makedirs("static/qr_codes", exist_ok=True)
 os.makedirs("static/maps", exist_ok=True)
+os.makedirs(settings.QR_CODE_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# If QR codes are stored outside /static (e.g. on a persistent volume),
+# serve them at /qr_codes/ so URLs still work
+if not settings.QR_CODE_DIR.startswith("static"):
+    app.mount("/qr_codes", StaticFiles(directory=settings.QR_CODE_DIR), name="qr_codes")
 
 # ── Templates ────────────────────────────────────────────────
 templates = Jinja2Templates(directory="app/templates")

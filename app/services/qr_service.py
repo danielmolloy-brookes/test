@@ -22,7 +22,9 @@ def get_qr_path(ticket_id: str) -> Path:
 
 
 def get_qr_url(ticket_id: str) -> str:
-    return f"{settings.BASE_URL}/static/qr_codes/{ticket_id}.png"
+    if settings.QR_CODE_DIR.startswith("static"):
+        return f"{settings.BASE_URL}/static/qr_codes/{ticket_id}.png"
+    return f"{settings.BASE_URL}/qr_codes/{ticket_id}.png"
 
 
 def generate_qr_code(
