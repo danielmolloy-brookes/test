@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Book — {{ event.name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    [x-cloak] { display: none !important; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.35s cubic-bezier(0.16,1,0.3,1) both; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-900 text-white" x-data="bookingApp()" x-init="loadSlots()">
+
+  <!-- Header -->
+  <div class="bg-slate-800 border-b border-slate-700">
+    <div class="max-w-lg mx-auto px-5 py-5">
+      <p class="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-1">Book a slot</p>
+      <h1 class="text-2xl font-bold leading-tight">{{ event.name }}</h1>
+      <div class="mt-2 flex flex-wrap gap-3 text-sm text-slate-400">
+        {% if event.location %}
+        <span><i class="fas fa-map-marker-alt mr-1 text-indigo-400"></i>{{ event.location }}</span>
+        {% endif %}
+        <span><i class="fas fa-clock mr-1 text-indigo-400"></i>{{ event.slot_duration_mins }}-minute slots</span>
+      </div>
+      {% if event.description %}
+      <p class="mt-3 text-sm text-slate-400 leading-relaxed">{{ event.description }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="max-w-lg mx-auto px-5 py-6 space-y-6">
+
+    <!-- Step 1: pick a slot -->
+    <div x-show="!selectedSlot" class="fade-up">
+      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Available slots</h2>
+
+      <!-- Loading -->
+      <div x-show="loading" class="flex justify-center py-12">
+        <div class="w-7 h-7 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div>
+      </div>
+
+      <!-- Error -->
+      <div x-show="!loading && error" class="text-center py-10 text-red-400 text-sm" x-text="error"></div>
+
+      <!-- No slots -->
+      <div x-show="!loading && !error && slots.length === 0" class="text-center py-12 text-slate-500">
+        <i class="fas fa-calendar-times text-3xl mb-3 block"></i>
+        No slots available right now.
+      </div>
+
+      <!-- Slot grid grouped by date -->
+      <template x-if="!loading && slots.length > 0">
+        <div class="space-y-5">
+          <template x-for="group in groupedSlots" :key="group.date">
+            <div>
+              <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2" x-text="group.label"></p>
+              <div class="grid grid-cols-3 gap-2">
+                <template x-for="slot in group.slots" :key="slot.id">
+                  <button
+                    @click="slot.available && selectSlot(slot)"
+                    :disabled="!slot.available"
+                    :class="slot.available
+                      ? 'bg-slate-800 border-slate-600 hover:border-indigo-500 hover:bg-indigo-900/30 cursor-pointer'
+                      : 'bg-slate-800/40 border-slate-700 opacity-50 cursor-not-allowed'"
+                    class="border rounded-xl px-3 py-3 text-center transition-all"
+                  >
+                    <p class="text-sm font-semibold" x-text="formatTime(slot.start_time)"></p>
+                    <p class="text-[10px] mt-0.5"
+                       :class="slot.available ? 'text-emerald-400' : 'text-slate-500'"
+                       x-text="slot.available ? (slot.spots_left === 1 ? '1 spot' : slot.spots_left + ' spots') : 'Full'">
+                    </p>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+
+    <!-- Step 2: booking form -->
+    <div x-show="selectedSlot && !submitted" x-cloak class="fade-up space-y-5">
+
+      <!-- Selected slot summary -->
+      <div class="bg-indigo-900/40 border border-indigo-700/50 rounded-xl px-4 py-3 flex items-center justify-between">
+        <div>
+          <p class="text-xs text-indigo-300 font-medium">Selected slot</p>
+          <p class="font-semibold" x-text="selectedSlot ? formatDate(selectedSlot.start_time) + ' · ' + formatTime(selectedSlot.start_time) + ' – ' + formatTime(selectedSlot.end_time) : ''"></p>
+        </div>
+        <button @click="selectedSlot = null" class="text-slate-400 hover:text-white transition text-sm">
+          <i class="fas fa-times"></i> Change
+        </button>
+      </div>
+
+      <!-- Form -->
+      <form @submit.prevent="submitBooking" class="space-y-4">
+        <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Your details</h2>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">First name *</label>
+            <input x-model="form.first_name" type="text" required
+              class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"
+              placeholder="Jane"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Last name</label>
+            <input x-model="form.last_name" type="text"
+              class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"
+              placeholder="Smith"/>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Email *</label>
+          <input x-model="form.email" type="email" required
+            class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"
+            placeholder="jane@example.com"/>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Phone</label>
+          <input x-model="form.phone" type="tel"
+            class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500"
+            placeholder="+44 7700 000000"/>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Notes <span class="text-slate-600">(optional)</span></label>
+          <textarea x-model="form.notes" rows="2"
+            class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 placeholder-slate-500 resize-none"
+            placeholder="Anything we should know…"></textarea>
+        </div>
+
+        <!-- Error -->
+        <div x-show="formError" class="text-red-400 text-sm bg-red-900/20 border border-red-700/40 rounded-lg px-4 py-2.5" x-text="formError"></div>
+
+        <button type="submit" :disabled="submitting"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition text-white font-semibold rounded-xl py-3.5 text-sm flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-indigo-900/40">
+          <span x-show="submitting" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+          <span x-text="submitting ? 'Booking…' : 'Confirm booking'"></span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Step 3: success -->
+    <div x-show="submitted" x-cloak class="fade-up text-center py-8 space-y-4">
+      <div class="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto">
+        <i class="fas fa-check text-2xl text-emerald-400"></i>
+      </div>
+      <h2 class="text-xl font-bold">You're booked!</h2>
+      <p class="text-slate-400 text-sm">Redirecting to your confirmation…</p>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <p class="text-center text-xs text-slate-700 pb-8">Powered by Smart Event Check-In</p>
+
+<script>
+function bookingApp() {
+  return {
+    slots:        [],
+    loading:      true,
+    error:        '',
+    selectedSlot: null,
+    form:         { first_name:'', last_name:'', email:'', phone:'', notes:'' },
+    formError:    '',
+    submitting:   false,
+    submitted:    false,
+
+    async loadSlots() {
+      try {
+        const res  = await fetch('/api/book/{{ event.id }}/slots');
+        if (!res.ok) throw new Error('Could not load slots');
+        this.slots = await res.json();
+      } catch (e) {
+        this.error = e.message;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    get groupedSlots() {
+      const groups = {};
+      for (const s of this.slots) {
+        const d = s.start_time.substring(0, 10);
+        if (!groups[d]) groups[d] = [];
+        groups[d].push(s);
+      }
+      return Object.entries(groups).map(([date, slots]) => ({
+        date,
+        label: new Date(date + 'T00:00:00').toLocaleDateString('en-GB',
+          { weekday:'long', day:'numeric', month:'long' }),
+        slots,
+      }));
+    },
+
+    selectSlot(slot) {
+      this.selectedSlot = slot;
+      this.formError    = '';
+    },
+
+    formatTime(iso) {
+      return new Date(iso).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    },
+
+    formatDate(iso) {
+      return new Date(iso).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+    },
+
+    async submitBooking() {
+      if (!this.selectedSlot) return;
+      this.submitting = true;
+      this.formError  = '';
+      try {
+        const res = await fetch(
+          `/api/book/{{ event.id }}/reserve?slot_id=${this.selectedSlot.id}`,
+          {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(this.form),
+          }
+        );
+        const data = await res.json();
+        if (!res.ok) { this.formError = data.detail || 'Booking failed'; return; }
+        this.submitted = true;
+        setTimeout(() => {
+          window.location.href = `/book/confirmation/${data.ticket_id}`;
+        }, 1000);
+      } catch (e) {
+        this.formError = 'Network error — please try again';
+      } finally {
+        this.submitting = false;
+      }
+    },
+  };
+}
+</script>
+</body>
+</html>

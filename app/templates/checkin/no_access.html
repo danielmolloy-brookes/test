@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Access Denied — OTTG Events{% endblock %}
+
+{% block page_header %}
+  <h1 class="text-lg font-semibold text-white">Access Denied</h1>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto text-center py-16">
+
+  <div class="inline-flex items-center justify-center w-20 h-20 bg-red-900/30 rounded-2xl mb-6">
+    <i class="fas fa-lock text-red-400 text-4xl"></i>
+  </div>
+
+  <h1 class="text-2xl font-bold text-white mb-2">No Access to This Event</h1>
+  <p class="text-slate-400 text-sm mb-1">
+    You haven't been granted permission to check in at
+    <span class="text-white font-medium">{{ event.name }}</span>.
+  </p>
+  <p class="text-slate-500 text-sm mb-8">
+    Ask an admin to grant you access from the event's detail page.
+  </p>
+
+  <a href="/checkin-home" class="btn-primary">
+    <i class="fas fa-arrow-left mr-2"></i> Back to My Events
+  </a>
+
+</div>
+{% endblock %}

@@ -1,0 +1,154 @@
+{#
+  Partial: event mobile settings panel
+  Include in the event edit/detail admin page with:
+    {% include "partials/event_mobile_settings.html" %}
+
+  Expects:
+    event  — the Event ORM object
+    request — the FastAPI Request (for CSRF / base URL)
+#}
+<div class="card mt-6" id="mobile-settings-card">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <h5 class="mb-0">
+      <svg class="icon me-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+      </svg>
+      Mobile App Settings
+    </h5>
+  </div>
+  <div class="card-body">
+
+    {# ── Push Notifications Toggle ──────────────────────────── #}
+    <div class="mb-4">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <label class="form-label fw-semibold mb-0">Push Notifications</label>
+          <p class="text-muted small mb-0">
+            When enabled, attendees who book via the mobile app are prompted to allow
+            push reminders. Notifications are sent for updates and cancellations.
+          </p>
+        </div>
+        <div class="form-check form-switch ms-3">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            role="switch"
+            id="pushNotifToggle"
+            {% if event.push_notifications_enabled %}checked{% endif %}
+            onchange="togglePushNotifications(this)"
+          />
+        </div>
+      </div>
+      <small id="pushNotifStatus" class="text-muted d-block mt-1"></small>
+    </div>
+
+    <hr />
+
+    {# ── Map Upload ──────────────────────────────────────────── #}
+    <div>
+      <label class="form-label fw-semibold">Event Space Map</label>
+      <p class="text-muted small mb-3">
+        Upload an image (PNG, JPG, SVG, or WebP) of the venue layout. Attendees can
+        zoom and pan it in the mobile app.
+      </p>
+
+      {% if event.map_image_path %}
+      <div class="mb-3 d-flex align-items-center gap-3">
+        <img
+          src="{{ request.base_url }}{{ event.map_image_path }}"
+          alt="Current map"
+          class="rounded border"
+          style="max-height:100px; max-width:200px; object-fit:contain;"
+        />
+        <div>
+          <span class="badge bg-success">Map uploaded</span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger ms-2"
+            onclick="deleteMap()"
+          >Remove</button>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="d-flex gap-2 align-items-center">
+        <input type="file" id="mapFileInput" accept="image/*" class="form-control form-control-sm" style="max-width:280px" />
+        <button type="button" class="btn btn-sm btn-primary" onclick="uploadMap()">
+          {% if event.map_image_path %}Replace map{% else %}Upload map{% endif %}
+        </button>
+      </div>
+      <small id="mapStatus" class="text-muted d-block mt-1"></small>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  const EVENT_ID = {{ event.id }};
+
+  async function apiFetch(path, opts) {
+    const res = await fetch(path, {
+      credentials: 'same-origin',
+      ...opts,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail ?? `HTTP ${res.status}`);
+    }
+    return res.json();
+  }
+
+  window.togglePushNotifications = async function (checkbox) {
+    const enabled = checkbox.checked;
+    const status  = document.getElementById('pushNotifStatus');
+    status.textContent = 'Saving…';
+    try {
+      await apiFetch(`/api/admin/events/${EVENT_ID}/push-notifications`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      status.textContent = enabled
+        ? '✓ Push notifications enabled'
+        : '✓ Push notifications disabled';
+    } catch (err) {
+      checkbox.checked = !enabled;   // revert
+      status.textContent = '✗ ' + err.message;
+    }
+    setTimeout(() => { status.textContent = '' }, 3000);
+  };
+
+  window.uploadMap = async function () {
+    const input  = document.getElementById('mapFileInput');
+    const status = document.getElementById('mapStatus');
+    if (!input.files.length) { status.textContent = 'Select a file first'; return; }
+    const form = new FormData();
+    form.append('file', input.files[0]);
+    status.textContent = 'Uploading…';
+    try {
+      await apiFetch(`/api/admin/events/${EVENT_ID}/map`, {
+        method: 'POST',
+        body: form,
+      });
+      status.textContent = '✓ Map uploaded — reload to preview';
+      setTimeout(() => location.reload(), 1500);
+    } catch (err) {
+      status.textContent = '✗ ' + err.message;
+    }
+  };
+
+  window.deleteMap = async function () {
+    if (!confirm('Remove the map for this event?')) return;
+    const status = document.getElementById('mapStatus');
+    status.textContent = 'Removing…';
+    try {
+      await apiFetch(`/api/admin/events/${EVENT_ID}/map`, { method: 'DELETE' });
+      status.textContent = '✓ Map removed';
+      setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+      status.textContent = '✗ ' + err.message;
+    }
+  };
+})();
+</script>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Booking confirmed — {{ event.name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up   { animation: fadeUp 0.35s cubic-bezier(0.16,1,0.3,1) both; }
+    .fade-up-2 { animation: fadeUp 0.35s 0.1s cubic-bezier(0.16,1,0.3,1) both; }
+    .fade-up-3 { animation: fadeUp 0.35s 0.2s cubic-bezier(0.16,1,0.3,1) both; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-900 text-white flex flex-col items-center px-5 py-10">
+
+  <!-- Check icon -->
+  <div class="fade-up mb-6 text-center">
+    <div class="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500/40 flex items-center justify-center mx-auto mb-4">
+      <i class="fas fa-check text-2xl text-emerald-400"></i>
+    </div>
+    <h1 class="text-2xl font-bold">Booking confirmed</h1>
+    <p class="text-slate-400 text-sm mt-1">{{ event.name }}</p>
+  </div>
+
+  <!-- Card -->
+  <div class="w-full max-w-sm fade-up-2">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
+
+      <!-- Slot time banner -->
+      <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 px-6 py-5 text-center">
+        <p class="text-indigo-200 text-xs font-semibold uppercase tracking-wider mb-1">Your slot</p>
+        <p class="text-2xl font-bold">
+          {{ slot.start_time.strftime('%H:%M') }} – {{ slot.end_time.strftime('%H:%M') }}
+        </p>
+        <p class="text-indigo-200 text-sm mt-0.5">
+          {{ slot.start_time.strftime('%A, %-d %B %Y') }}
+        </p>
+      </div>
+
+      <!-- Attendee details -->
+      <div class="px-6 py-5 space-y-3 border-b border-slate-700">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
+            <i class="fas fa-user text-indigo-400 text-xs"></i>
+          </div>
+          <div>
+            <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Name</p>
+            <p class="text-sm text-slate-200">{{ booking.full_name }}</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
+            <a href="mailto:{{ booking.email }}">
+              <i class="fas fa-envelope text-indigo-400 text-xs"></i>
+            </a>
+          </div>
+          <div>
+            <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Email</p>
+            <p class="text-sm text-slate-200">{{ booking.email }}</p>
+          </div>
+        </div>
+
+        {% if event.location %}
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
+            <i class="fas fa-map-marker-alt text-indigo-400 text-xs"></i>
+          </div>
+          <div>
+            <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Location</p>
+            <p class="text-sm text-slate-200">{{ event.location }}</p>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Booking reference -->
+      <div class="px-6 py-4">
+        <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wider mb-1">Booking reference</p>
+        <p class="font-mono text-xs text-slate-400 tracking-wider break-all">{{ booking.ticket_id }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="w-full max-w-sm mt-4 space-y-2 fade-up-3">
+    <a href="/book/{{ event.id }}"
+       class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-slate-700 hover:bg-slate-600 transition text-sm font-medium">
+      <i class="fas fa-plus"></i> Book another slot
+    </a>
+  </div>
+
+  <p class="mt-10 text-xs text-slate-700 fade-up-3">Powered by Smart Event Check-In</p>
+
+</body>
+</html>

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Send Tickets — {{ event.name }}{% endblock %}
+{% block nav_tickets %}active{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-2 text-sm text-slate-400">
+    <a href="/events/{{ event.id }}" class="hover:text-white truncate">{{ event.name }}</a>
+    <i class="fas fa-chevron-right text-xs"></i>
+    <span class="text-white">Send Tickets</span>
+  </div>
+{% endblock %}
+
+{% block content %}
+<!-- Redirect to main tickets page which has full functionality -->
+<script>window.location.href = '/events/{{ event.id }}/tickets';</script>
+<div class="flex items-center justify-center h-32 text-slate-500">Redirecting…</div>
+{% endblock %}

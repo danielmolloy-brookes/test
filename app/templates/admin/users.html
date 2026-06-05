@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% block title %}Manage Users — OTTG Events{% endblock %}
+{% block nav_users %}active{% endblock %}
+{% block nav_users_admin %}active{% endblock %}
+
+{% block page_header %}
+  <h1 class="text-lg font-semibold text-white">Manage Users</h1>
+{% endblock %}
+
+{% block content %}
+<div x-data="usersPage()" class="max-w-4xl">
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">User Management</h1>
+    <p class="text-slate-400 text-sm mt-1">
+      <span class="badge-blue mr-2"><i class="fas fa-crown mr-1"></i>Admin</span> Full access — events, attendees, tickets, reports.<br class="sm:hidden"/>
+      <span class="badge-green mt-1 sm:mt-0 mr-2"><i class="fas fa-qrcode mr-1"></i>Check-In</span> Scanner only — no access to event management.
+    </p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Create user form -->
+    <div class="card h-fit">
+      <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-user-plus text-indigo-400"></i> Add New User
+      </h2>
+
+      <div class="space-y-4">
+        <div>
+          <label class="label">Username <span class="text-red-400">*</span></label>
+          <input type="text" x-model="form.username" class="input" placeholder="e.g. sarah_events"
+            @keydown.enter="createUser()" />
+        </div>
+        <div>
+          <label class="label">Display Name</label>
+          <input type="text" x-model="form.display_name" class="input" placeholder="e.g. Sarah Johnson" />
+        </div>
+        <div>
+          <label class="label">Password <span class="text-red-400">*</span></label>
+          <div class="relative">
+            <input :type="showPw ? 'text' : 'password'" x-model="form.password" class="input pr-9"
+              placeholder="Min. 6 characters" />
+            <button @click="showPw = !showPw" type="button"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+              <i :class="showPw ? 'fas fa-eye-slash' : 'fas fa-eye'" class="text-sm"></i>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="label">Role <span class="text-red-400">*</span></label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="cursor-pointer">
+              <input type="radio" x-model="form.role" value="checkin" class="sr-only peer" />
+              <div class="p-3 rounded-xl border border-slate-600 peer-checked:border-emerald-500 peer-checked:bg-emerald-900/20 transition-all text-center">
+                <i class="fas fa-qrcode text-emerald-400 text-lg block mb-1"></i>
+                <p class="text-xs font-semibold text-white">Check-In</p>
+                <p class="text-xs text-slate-500">Scanner only</p>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" x-model="form.role" value="admin" class="sr-only peer" />
+              <div class="p-3 rounded-xl border border-slate-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 transition-all text-center">
+                <i class="fas fa-crown text-indigo-400 text-lg block mb-1"></i>
+                <p class="text-xs font-semibold text-white">Admin</p>
+                <p class="text-xs text-slate-500">Full access</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {% if user and user.is_developer %}
+        <!-- Organisation selector — only for developers creating admin/checkin users -->
+        <div x-show="form.role !== 'developer'">
+          <label class="label">Organisation <span class="text-slate-500 font-normal">(for admin/checkin)</span></label>
+          <select x-model="form.org_id" class="input text-sm">
+            <option value="">— No organisation —</option>
+            {% for org in (orgs or []) %}
+            <option value="{{ org.id }}">{{ org.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <button @click="createUser()" :disabled="creating || !form.username || !form.password"
+          class="w-full btn-primary justify-center py-2.5"
+          :class="(creating || !form.username || !form.password) && 'opacity-60'">
+          <i class="fas fa-plus" :class="creating && 'fa-spin'"></i>
+          <span x-text="creating ? 'Creating…' : 'Create User'"></span>
+        </button>
+
+        <div x-show="msg" x-cloak
+          :class="msgType === 'success' ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300' : 'bg-red-900/30 border-red-700/50 text-red-300'"
+          class="p-3 border rounded-lg text-xs" x-text="msg">
+        </div>
+      </div>
+    </div>
+
+    <!-- Users list -->
+    <div class="lg:col-span-2 card">
+      <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-users text-indigo-400"></i>
+        All Users
+        <span class="text-slate-500 font-normal ml-1">({{ users|length }})</span>
+      </h2>
+
+      <div class="space-y-3">
+        {% for u in users %}
+        <div class="flex items-center gap-3 p-3 bg-slate-700/40 rounded-xl border border-slate-700"
+          x-data="userRow({{ u.id }}, '{{ u.role }}')">
+
+          <!-- Avatar -->
+          <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
+            {% if u.role == 'admin' %}bg-indigo-700 text-indigo-100{% else %}bg-emerald-800 text-emerald-100{% endif %}">
+            {{ (u.display_name or u.username)[0].upper() }}
+          </div>
+
+          <!-- Info -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <p class="text-sm font-semibold text-white">{{ u.display_name or u.username }}</p>
+              {% if u.id == user.id %}
+              <span class="text-xs text-slate-500">(you)</span>
+              {% endif %}
+            </div>
+            <p class="text-xs text-slate-500">@{{ u.username }}</p>
+          </div>
+
+          <!-- Role badge + org tag -->
+          <div class="flex-shrink-0 flex flex-col items-end gap-1">
+            {% if u.role == 'developer' %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-900/50 text-purple-300 border border-purple-700"><i class="fas fa-code mr-1"></i>Developer</span>
+            {% elif u.role == 'admin' %}
+            <span class="badge-blue text-xs"><i class="fas fa-crown mr-1"></i>Admin</span>
+            {% else %}
+            <span class="badge-green text-xs"><i class="fas fa-qrcode mr-1"></i>Check-In</span>
+            {% endif %}
+            {% if user and user.is_developer and u.org %}
+            <span class="text-xs text-slate-500">{{ u.org.name }}</span>
+            {% elif user and user.is_developer and not u.org %}
+            <span class="text-xs text-slate-600">No org</span>
+            {% endif %}
+          </div>
+
+          <!-- Actions -->
+          {% if u.id != user.id %}
+          <div class="flex gap-1.5 flex-shrink-0" x-data="{open: false}">
+            <button @click="open = !open"
+              class="text-slate-500 hover:text-slate-300 p-1.5 rounded-lg hover:bg-slate-600 transition-colors">
+              <i class="fas fa-ellipsis-h text-sm"></i>
+            </button>
+
+            <!-- Dropdown -->
+            <div x-show="open" x-cloak @click.away="open = false"
+              class="absolute right-0 mt-8 w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-10 py-1">
+              <button @click="changeRole('{{ 'checkin' if u.role == 'admin' else 'admin' }}'); open=false"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2">
+                <i class="fas fa-exchange-alt w-3"></i>
+                Switch to {{ 'Check-In' if u.role == 'admin' else 'Admin' }}
+              </button>
+              <button @click="resetPw = true; open = false"
+                class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-2">
+                <i class="fas fa-key w-3"></i>
+                Change Password
+              </button>
+              <div class="border-t border-slate-700 my-1"></div>
+              <button @click="deleteUser({{ u.id }}); open=false"
+                class="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-900/20 flex items-center gap-2">
+                <i class="fas fa-trash w-3"></i>
+                Delete User
+              </button>
+            </div>
+          </div>
+
+          <!-- Change password inline -->
+          <div x-show="resetPw" x-cloak class="absolute right-0 mt-8 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-10 p-3">
+            <p class="text-xs text-slate-400 mb-2">New password for <strong class="text-white">{{ u.username }}</strong></p>
+            <input type="password" x-model="newPw" class="input text-xs py-1.5 mb-2" placeholder="New password (min 6 chars)" />
+            <div class="flex gap-2">
+              <button @click="changePassword({{ u.id }})" class="flex-1 btn-primary text-xs py-1.5 justify-center">Save</button>
+              <button @click="resetPw = false; newPw = ''" class="btn-secondary text-xs py-1.5 px-3">Cancel</button>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Role guide -->
+  <div class="mt-6 card">
+    <h2 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+      <i class="fas fa-info-circle text-indigo-400"></i> Role Permissions
+    </h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-slate-500 border-b border-slate-700">
+            <th class="text-left py-2 pr-6">Feature</th>
+            <th class="text-center py-2 pr-6">Admin</th>
+            <th class="text-center py-2">Check-In</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/50 text-slate-300">
+          {% for row in [
+            ("Create / edit events", True, False),
+            ("Import attendees", True, False),
+            ("Generate QR tickets", True, False),
+            ("Send tickets via GHL", True, False),
+            ("QR scanner & check-in", True, True),
+            ("Manual check-in search", True, True),
+            ("View attendance report", True, False),
+            ("Export CSV", True, False),
+            ("Manage users", True, False),
+          ] %}
+          <tr>
+            <td class="py-2 pr-6">{{ row[0] }}</td>
+            <td class="text-center py-2 pr-6">
+              {% if row[1] %}<i class="fas fa-check text-emerald-400"></i>{% else %}<i class="fas fa-times text-slate-600"></i>{% endif %}
+            </td>
+            <td class="text-center py-2">
+              {% if row[2] %}<i class="fas fa-check text-emerald-400"></i>{% else %}<i class="fas fa-times text-slate-600"></i>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function usersPage() {
+  return {
+    form: { username: '', display_name: '', password: '', role: 'checkin', org_id: '' },
+    creating: false,
+    showPw: false,
+    msg: '',
+    msgType: 'success',
+
+    showMsg(text, type = 'success') {
+      this.msg = text;
+      this.msgType = type;
+      setTimeout(() => this.msg = '', 5000);
+    },
+
+    async createUser() {
+      if (!this.form.username || !this.form.password) return;
+      this.creating = true;
+      try {
+        const body = new FormData();
+        Object.entries(this.form).forEach(([k, v]) => body.append(k, v));
+        const res = await fetch('/api/users', { method: 'POST', body });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed');
+        this.showMsg(`✅ User "${this.form.username}" created`);
+        this.form = { username: '', display_name: '', password: '', role: 'checkin', org_id: '' };
+        setTimeout(() => location.reload(), 1200);
+      } catch (e) {
+        this.showMsg('❌ ' + e.message, 'error');
+      } finally {
+        this.creating = false;
+      }
+    },
+  };
+}
+
+function userRow(userId, currentRole) {
+  return {
+    resetPw: false,
+    newPw: '',
+
+    async changeRole(newRole) {
+      const body = new FormData();
+      body.append('role', newRole);
+      const res = await fetch(`/api/users/${userId}/role`, { method: 'POST', body });
+      if (res.ok) location.reload();
+      else alert('Failed to change role');
+    },
+
+    async changePassword(userId) {
+      if (this.newPw.length < 6) { alert('Password must be at least 6 characters'); return; }
+      const body = new FormData();
+      body.append('new_password', this.newPw);
+      const res = await fetch(`/api/users/${userId}/password`, { method: 'POST', body });
+      if (res.ok) { this.resetPw = false; this.newPw = ''; alert('Password changed ✅'); }
+      else alert('Failed to change password');
+    },
+
+    async deleteUser(userId) {
+      if (!confirm('Delete this user? They will be logged out immediately.')) return;
+      const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+      if (res.ok) location.reload();
+      else alert('Failed to delete user');
+    },
+  };
+}
+</script>
+{% endblock %}

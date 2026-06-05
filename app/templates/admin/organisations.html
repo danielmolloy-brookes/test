@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Organisations — OTTG Events{% endblock %}
+{% block nav_orgs %}active{% endblock %}
+
+{% block page_header %}
+  <span class="text-white font-medium text-sm">Organisations</span>
+{% endblock %}
+
+{% block content %}
+<div x-data="orgManager()">
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">Organisations</h1>
+    <p class="text-slate-400 text-sm mt-1">Create and manage organisations. Each organisation has its own events, users, and data.</p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Create organisation panel -->
+    <div class="lg:col-span-1">
+      <div class="card space-y-4">
+        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+          <i class="fas fa-plus-circle text-indigo-400"></i> New Organisation
+        </h2>
+
+        <div>
+          <label class="label">Organisation Name</label>
+          <input type="text" x-model="form.name" @input="autoSlug()" placeholder="e.g. Acme Events"
+            class="input" @keydown.enter.prevent="createOrg()" />
+        </div>
+        <div>
+          <label class="label">Slug <span class="text-slate-500 font-normal">(URL identifier)</span></label>
+          <input type="text" x-model="form.slug" placeholder="e.g. acme-events"
+            class="input font-mono text-xs" @keydown.enter.prevent="createOrg()" />
+          <p class="text-xs text-slate-500 mt-1">Lowercase letters, numbers, hyphens only.</p>
+        </div>
+
+        <button @click="createOrg()" :disabled="creating || !form.name.trim() || !form.slug.trim()"
+          class="w-full btn-primary justify-center"
+          :class="(creating || !form.name.trim() || !form.slug.trim()) && 'opacity-60'">
+          <i class="fas fa-plus" :class="creating && 'fa-spin'"></i>
+          <span x-text="creating ? 'Creating…' : 'Create Organisation'"></span>
+        </button>
+
+        <div x-show="error" x-cloak class="p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-xs text-red-300" x-text="error"></div>
+        <div x-show="success" x-cloak class="p-3 bg-emerald-900/30 border border-emerald-700/50 rounded-lg text-xs text-emerald-300" x-text="success"></div>
+      </div>
+    </div>
+
+    <!-- Organisations list -->
+    <div class="lg:col-span-2">
+      <div class="space-y-3">
+        <template x-if="orgs.length === 0">
+          <div class="card text-center py-12 text-slate-500">
+            <i class="fas fa-building text-3xl mb-3 block text-slate-700"></i>
+            No organisations yet. Create one to get started.
+          </div>
+        </template>
+
+        <template x-for="org in orgs" :key="org.id">
+          <div class="card">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <h3 class="text-white font-semibold" x-text="org.name"></h3>
+                  <code class="text-xs text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded font-mono" x-text="org.slug"></code>
+                </div>
+                <div class="flex gap-4 text-xs text-slate-400 mt-2">
+                  <span><i class="fas fa-user-shield mr-1 text-indigo-400"></i><span x-text="org.admin_count"></span> admin(s)</span>
+                  <span><i class="fas fa-qrcode mr-1 text-emerald-400"></i><span x-text="org.checkin_count"></span> check-in user(s)</span>
+                  <span><i class="fas fa-calendar-alt mr-1 text-amber-400"></i><span x-text="org.event_count"></span> event(s)</span>
+                </div>
+              </div>
+              <div class="flex gap-2 flex-shrink-0">
+                <a :href="`/admin/organisations/${org.id}`" class="btn-secondary text-xs py-1.5 px-3">
+                  <i class="fas fa-cog"></i> Manage
+                </a>
+                <button @click="deleteOrg(org)" class="text-slate-600 hover:text-red-400 transition-colors p-1.5">
+                  <i class="fas fa-trash text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function orgManager() {
+  return {
+    orgs: {{ orgs | tojson }},
+    form: { name: '', slug: '' },
+    creating: false,
+    error: '',
+    success: '',
+
+    autoSlug() {
+      this.form.slug = this.form.name
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+    },
+
+    async createOrg() {
+      this.creating = true;
+      this.error = '';
+      this.success = '';
+      try {
+        const body = new FormData();
+        body.append('name', this.form.name.trim());
+        body.append('slug', this.form.slug.trim());
+        const res = await fetch('/api/organisations', { method: 'POST', body });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to create organisation');
+        this.orgs.push({ ...data, admin_count: 0, checkin_count: 0, event_count: 0 });
+        this.success = `✅ Organisation '${data.name}' created.`;
+        this.form = { name: '', slug: '' };
+      } catch (e) {
+        this.error = e.message;
+      } finally {
+        this.creating = false;
+      }
+    },
+
+    async deleteOrg(org) {
+      if (!confirm(`Delete organisation '${org.name}'? This cannot be undone.`)) return;
+      try {
+        const res = await fetch(`/api/organisations/${org.id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to delete');
+        this.orgs = this.orgs.filter(o => o.id !== org.id);
+      } catch (e) {
+        alert(e.message);
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

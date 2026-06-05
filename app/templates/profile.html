@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>{{ attendee.full_name }} — {{ event.name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .fade-up-2 { animation: fadeUp 0.4s 0.08s cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .fade-up-3 { animation: fadeUp 0.4s 0.16s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-start px-4 py-10">
+
+  <!-- Brand header -->
+  <div class="mb-8 text-center fade-up">
+    <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest">{{ event.name }}</p>
+  </div>
+
+  <!-- Profile card -->
+  <div class="w-full max-w-sm fade-up">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
+
+      <!-- Avatar banner -->
+      <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 px-6 pt-8 pb-6 flex flex-col items-center text-center">
+        <div class="w-20 h-20 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center mb-4 shadow-lg">
+          <span class="text-3xl font-bold text-white">
+            {{ (attendee.first_name or attendee.email or '?')[0] | upper }}
+          </span>
+        </div>
+
+        <h1 class="text-xl font-bold text-white leading-tight">{{ attendee.full_name }}</h1>
+
+        {% if attendee.company %}
+        <p class="mt-1 text-sm text-indigo-200 font-medium">{{ attendee.company }}</p>
+        {% endif %}
+
+        {% if attendee.is_vip %}
+        <span class="mt-2 inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-amber-400/20 text-amber-300 border border-amber-400/40">
+          <i class="fas fa-star text-[10px]"></i> VIP
+        </span>
+        {% endif %}
+      </div>
+
+      <!-- Contact details -->
+      <div class="px-6 py-5 space-y-3 border-b border-slate-700">
+
+        {% if attendee.email %}
+        <a href="mailto:{{ attendee.email }}"
+           class="flex items-center gap-3 group">
+          <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 transition-colors">
+            <i class="fas fa-envelope text-slate-400 text-xs group-hover:text-white transition-colors"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Email</p>
+            <p class="text-sm text-slate-200 truncate group-hover:text-indigo-300 transition-colors">{{ attendee.email }}</p>
+          </div>
+        </a>
+        {% endif %}
+
+        {% if attendee.phone %}
+        <a href="tel:{{ attendee.phone }}"
+           class="flex items-center gap-3 group">
+          <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 transition-colors">
+            <i class="fas fa-phone text-slate-400 text-xs group-hover:text-white transition-colors"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Phone</p>
+            <p class="text-sm text-slate-200 group-hover:text-indigo-300 transition-colors">{{ attendee.phone }}</p>
+          </div>
+        </a>
+        {% endif %}
+
+        {% if attendee.company %}
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
+            <i class="fas fa-building text-slate-400 text-xs"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Company</p>
+            <p class="text-sm text-slate-200 truncate">{{ attendee.company }}</p>
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+
+      <!-- Event info -->
+      <div class="px-6 py-4 space-y-2 border-b border-slate-700">
+        <p class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-3">Event</p>
+
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
+            <i class="fas fa-calendar-alt text-indigo-400 text-xs"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-slate-200 truncate">{{ event.name }}</p>
+            <p class="text-xs text-slate-500">
+              {{ event.date.strftime('%A, %-d %B %Y') }}
+              {% if event.date.strftime('%H:%M') != '00:00' %}
+                · {{ event.date.strftime('%H:%M') }}
+              {% endif %}
+            </p>
+          </div>
+        </div>
+
+        {% if event.location %}
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
+            <i class="fas fa-map-marker-alt text-indigo-400 text-xs"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Location</p>
+            <p class="text-sm text-slate-200 truncate">{{ event.location }}</p>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Status badge -->
+        <div class="pt-1">
+          {% if attendee.checked_in %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-900/50 text-emerald-300 border border-emerald-700">
+            <i class="fas fa-check-circle"></i>
+            Checked in{% if attendee.checked_in_at %} · {{ attendee.checked_in_at.strftime('%H:%M') }}{% endif %}
+          </span>
+          {% else %}
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-900/50 text-indigo-300 border border-indigo-700">
+            <i class="fas fa-ticket-alt"></i>
+            Registered
+          </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- QR code -->
+      <div class="px-6 py-5 flex flex-col items-center gap-3">
+        <p class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider self-start">Ticket QR</p>
+        <div class="bg-white rounded-xl p-3 shadow-lg">
+          <img src="/static/qr_codes/{{ attendee.ticket_id }}.png"
+               alt="QR code for {{ attendee.full_name }}"
+               class="w-36 h-36 object-contain"
+               onerror="this.parentElement.innerHTML='<p class=\'text-slate-400 text-xs p-4\'>QR unavailable</p>'" />
+        </div>
+        <p class="font-mono text-[10px] text-slate-600 tracking-widest">{{ attendee.ticket_id }}</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="w-full max-w-sm mt-4 space-y-2 fade-up-2">
+    {% if attendee.email %}
+    <a href="mailto:{{ attendee.email }}"
+       class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition text-sm font-semibold">
+      <i class="fas fa-envelope"></i>
+      Send email
+    </a>
+    {% endif %}
+
+    {% if attendee.phone %}
+    <a href="tel:{{ attendee.phone }}"
+       class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-slate-700 hover:bg-slate-600 active:scale-[0.98] transition text-sm font-semibold text-slate-200">
+      <i class="fas fa-phone"></i>
+      Call
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Footer -->
+  <p class="mt-10 text-xs text-slate-700 fade-up-3">Powered by Smart Event Check-In</p>
+
+</body>
+</html>

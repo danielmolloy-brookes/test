@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}{% if event %}Edit Event{% else %}Create Event{% endif %} — OTTG Events{% endblock %}
+{% block nav_create %}{% if not event %}active{% endif %}{% endblock %}
+{% block nav_event %}{% if event %}active{% endif %}{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-2 text-sm text-slate-400 min-w-0 overflow-hidden">
+    <a href="/dashboard" class="hover:text-white transition-colors flex-shrink-0">Dashboard</a>
+    <i class="fas fa-chevron-right text-xs flex-shrink-0"></i>
+    <span class="text-white flex-shrink-0">{% if event %}Edit Event{% else %}New Event{% endif %}</span>
+  </div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl" x-data="createEvent({{ event.folder_id if event and event.folder_id else 'null' }})">
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">{% if event %}Edit Event{% else %}Create New Event{% endif %}</h1>
+    <p class="text-slate-400 text-sm mt-1">Fill in the event details below. You can import attendees after creating the event.</p>
+  </div>
+
+  {% if error %}
+  <div class="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg flex items-center gap-2 text-sm text-red-300">
+    <i class="fas fa-exclamation-circle"></i> {{ error }}
+  </div>
+  {% endif %}
+
+  <form method="POST" action="{% if event %}/events/{{ event.id }}/edit{% else %}/events/create{% endif %}" class="space-y-6">
+
+    <!-- Organisation selector — developers only -->
+    {% if user and user.is_developer %}
+    <div class="card space-y-3">
+      <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+        <i class="fas fa-building text-purple-400"></i> Organisation
+        <span class="text-red-400 font-normal normal-case">*</span>
+      </h2>
+      <p class="text-xs text-slate-500 -mt-1">Select which organisation this event belongs to.</p>
+      <select name="org_id" required class="input text-sm">
+        <option value="">— Select an organisation —</option>
+        {% for org in (orgs or []) %}
+        <option value="{{ org.id }}"
+          {% if event and event.org_id == org.id %}selected{% endif %}>
+          {{ org.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <!-- Basic info -->
+    <div class="card space-y-5">
+      <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+        <i class="fas fa-info-circle text-indigo-400"></i> Event Details
+      </h2>
+
+      <div>
+        <label for="name" class="label">Event Name <span class="text-red-400">*</span></label>
+        <input type="text" id="name" name="name" required
+          value="{{ event.name if event else '' }}"
+          placeholder="e.g. Graduate Recruitment Fair 2024"
+          class="input"
+          @input="updateTags($event.target.value)"
+        />
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="date" class="label">Date & Time <span class="text-red-400">*</span></label>
+          <input type="datetime-local" id="date" name="date" required
+            value="{{ event.date.strftime('%Y-%m-%dT%H:%M') if event and event.date else '' }}"
+            class="input"
+          />
+        </div>
+        <div>
+          <label for="location" class="label">Location</label>
+          <input type="text" id="location" name="location"
+            value="{{ event.location if event else '' }}"
+            placeholder="e.g. Birmingham Conference Centre"
+            class="input"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label for="description" class="label">Description <span class="text-slate-500">(optional)</span></label>
+        <textarea id="description" name="description" rows="3"
+          placeholder="Brief description of the event…"
+          class="input resize-none">{{ event.description if event else '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- GHL settings -->
+    <div class="card space-y-5">
+      <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+        <i class="fas fa-link text-indigo-400"></i> GoHighLevel Settings
+      </h2>
+      <p class="text-xs text-slate-500 -mt-2">Configure the GHL API credentials and workflow for this event.</p>
+
+      <div>
+        <label for="ghl_api_key" class="label">GHL API Key <span class="text-red-400">*</span></label>
+        <input type="text" id="ghl_api_key" name="ghl_api_key"
+          value="{{ event.ghl_api_key if event else '' }}"
+          placeholder="pit-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          class="input font-mono text-xs"
+        />
+        <p class="text-xs text-slate-500 mt-1">
+          <i class="fas fa-info-circle mr-1"></i>
+          Found in GHL → Settings → Integrations → Private Integrations. Must have Contacts + Workflows scopes.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="ghl_location_id" class="label">GHL Location ID <span class="text-red-400">*</span></label>
+
+          <input type="text" id="ghl_location_id" name="ghl_location_id"
+            value="{{ event.ghl_location_id if event else '' }}"
+            placeholder="e.g. wZ6JvBkokr5jCx63gp9H"
+            class="input"
+          />
+          <p class="text-xs text-slate-500 mt-1">
+            <i class="fas fa-info-circle mr-1"></i>
+            Found in GHL → Settings → Business Info. Leave blank to use the default from the server config.
+          </p>
+        </div>
+        <div>
+          <label for="ghl_workflow_id" class="label">GHL Workflow ID <span class="text-slate-500">(for sending tickets)</span></label>
+          <input type="text" id="ghl_workflow_id" name="ghl_workflow_id"
+            value="{{ event.ghl_workflow_id if event else '' }}"
+            placeholder="e.g. abc123def456..."
+            class="input"
+          />
+          <p class="text-xs text-slate-500 mt-1">
+            <i class="fas fa-info-circle mr-1"></i>
+            Find this in GHL → Automations → [Your Workflow] → the URL when viewing the workflow.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="ghl_attended_tag" class="label">
+            "Attended" Tag
+            <span class="text-slate-500">(auto-applied on check-in)</span>
+          </label>
+          <input type="text" id="ghl_attended_tag" name="ghl_attended_tag"
+            x-model="attendedTag"
+            placeholder="Attended - [Event Name]"
+            class="input"
+          />
+          <p class="text-xs text-slate-500 mt-1">Added to contact when they check in</p>
+        </div>
+        <div>
+          <label for="ghl_registered_tag" class="label">
+            "Registered" Tag
+            <span class="text-slate-500">(removed on check-in)</span>
+          </label>
+          <input type="text" id="ghl_registered_tag" name="ghl_registered_tag"
+            value="{{ event.ghl_registered_tag if event else '' }}"
+            placeholder="Registered - [Event Name]"
+            class="input"
+          />
+          <p class="text-xs text-slate-500 mt-1">Removed from contact when they check in</p>
+        </div>
+      </div>
+
+      <div>
+        <label for="ghl_checkout_tag" class="label">
+          "Checked Out" Tag
+          <span class="text-slate-500">(auto-applied on check-out)</span>
+        </label>
+        <input type="text" id="ghl_checkout_tag" name="ghl_checkout_tag"
+          value="{{ event.ghl_checkout_tag if event else '' }}"
+          placeholder="Checked Out - [Event Name]"
+          class="input"
+        />
+        <p class="text-xs text-slate-500 mt-1">Added to contact when they scan out via the Check-Out Scanner</p>
+      </div>
+    </div>
+
+    <!-- Folder / organisation -->
+    <div class="card space-y-4">
+      <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+        <i class="fas fa-folder text-indigo-400"></i> Organisation
+        <span class="text-slate-600 font-normal normal-case tracking-normal">(optional)</span>
+      </h2>
+
+      <div>
+        <label class="label">Folder</label>
+        <select x-model="folderChoice"
+          class="input text-sm">
+          <option value="">No folder</option>
+          {% for f in (folders or []) %}
+          <option value="{{ f.id }}"
+            {% if event and event.folder_id == f.id %}selected{% endif %}>
+            {{ f.name }}
+          </option>
+          {% endfor %}
+          <option value="__new__">＋ Create new folder…</option>
+        </select>
+      </div>
+
+      <!-- New folder fields — shown when "Create new folder" selected -->
+      <div x-show="folderChoice === '__new__'" x-cloak x-transition class="space-y-3 pl-4 border-l-2 border-indigo-700">
+        <div>
+          <label class="label text-xs">New folder name <span class="text-red-400">*</span></label>
+          <input type="text" name="new_folder_name" x-model="newFolderName"
+            placeholder="e.g. 2025 Recruitment Events"
+            class="input text-sm" />
+        </div>
+        <div>
+          <label class="label text-xs">Colour</label>
+          <div class="flex gap-2 flex-wrap">
+            {% set colours = [
+              ('#6366f1','Indigo'), ('#10b981','Emerald'), ('#f43f5e','Rose'),
+              ('#f59e0b','Amber'), ('#3b82f6','Blue'), ('#a855f7','Purple'),
+              ('#14b8a6','Teal'), ('#f97316','Orange')
+            ] %}
+            {% for hex, label in colours %}
+            <label class="cursor-pointer">
+              <input type="radio" name="new_folder_color" value="{{ hex }}"
+                x-model="newFolderColor" class="sr-only" />
+              <span
+                :class="newFolderColor === '{{ hex }}' ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-800 scale-110' : ''"
+                class="w-7 h-7 rounded-full block transition-all"
+                style="background-color: {{ hex }};"
+                title="{{ label }}"></span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        <!-- Hidden field carries the color value for form POST -->
+        <input type="hidden" name="new_folder_color" :value="newFolderColor" />
+      </div>
+
+      <!-- If __new__ is chosen we blank folder_id so backend uses new_folder_name -->
+      <input type="hidden" name="folder_id"
+        :value="folderChoice === '__new__' ? '' : folderChoice" />
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-3">
+      <button type="submit" class="btn-primary px-6 py-2.5">
+        <i class="fas fa-{% if event %}save{% else %}plus{% endif %}"></i>
+        {% if event %}Save Changes{% else %}Create Event{% endif %}
+      </button>
+      <a href="{% if event %}/events/{{ event.id }}{% else %}/dashboard{% endif %}" class="btn-secondary px-4 py-2.5">
+        Cancel
+      </a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function createEvent(existingFolderId) {
+    return {
+      attendedTag: '{{ event.ghl_attended_tag if event else "" }}',
+      folderChoice: existingFolderId ? String(existingFolderId) : '',
+      newFolderName: '',
+      newFolderColor: '#6366f1',
+
+      updateTags(eventName) {
+        if (!this.attendedTag || this.attendedTag === '') {
+          this.attendedTag = eventName ? `Attended - ${eventName}` : '';
+        }
+      },
+    };
+  }
+</script>
+{% endblock %}

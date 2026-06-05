@@ -1,0 +1,355 @@
+{% extends "base.html" %}
+{% block title %}Tickets — {{ event.name }}{% endblock %}
+{% block nav_tickets %}active{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-2 text-sm text-slate-400 min-w-0 overflow-hidden">
+    <a href="/dashboard" class="hover:text-white flex-shrink-0">Dashboard</a>
+    <i class="fas fa-chevron-right text-xs flex-shrink-0"></i>
+    <a href="/events/{{ event.id }}" class="hover:text-white truncate min-w-0">{{ event.name }}</a>
+    <i class="fas fa-chevron-right text-xs flex-shrink-0"></i>
+    <span class="text-white flex-shrink-0">Tickets</span>
+  </div>
+{% endblock %}
+
+{% block header_actions %}
+  <a href="/checkin/{{ event.id }}" class="btn-primary text-xs">
+    <i class="fas fa-qrcode"></i><span class="hidden sm:inline"> Open Scanner</span>
+  </a>
+{% endblock %}
+
+{% block content %}
+<div x-data='ticketManager({{ event.id }}, {{ attendees|length }}, {{ generated }}, {{ sent }}, {{ event.ghl_api_key | tojson }}, {{ event.ghl_location_id | tojson }})'>
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">Ticket Management</h1>
+    <p class="text-slate-400 text-sm mt-1">Generate QR codes and send tickets to attendees via GHL.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+      <div class="hidden sm:flex w-10 h-10 bg-slate-700 rounded-lg items-center justify-center flex-shrink-0">
+        <i class="fas fa-users text-slate-300"></i>
+      </div>
+      <div>
+        <p class="text-xl sm:text-2xl font-bold text-white">{{ attendees|length }}</p>
+        <p class="text-[10px] sm:text-xs text-slate-400 leading-tight">Attendees</p>
+      </div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+      <div class="hidden sm:flex w-10 h-10 bg-indigo-900/50 rounded-lg items-center justify-center flex-shrink-0">
+        <i class="fas fa-qrcode text-indigo-400"></i>
+      </div>
+      <div>
+        <p class="text-xl sm:text-2xl font-bold text-white" x-text="generatedCount">{{ generated }}</p>
+        <p class="text-[10px] sm:text-xs text-slate-400 leading-tight"><span class="sm:hidden">QR Codes</span><span class="hidden sm:inline">QR Codes Generated</span></p>
+      </div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+      <div class="hidden sm:flex w-10 h-10 bg-emerald-900/50 rounded-lg items-center justify-center flex-shrink-0">
+        <i class="fas fa-envelope text-emerald-400"></i>
+      </div>
+      <div>
+        <p class="text-xl sm:text-2xl font-bold text-white" x-text="sentCount">{{ sent }}</p>
+        <p class="text-[10px] sm:text-xs text-slate-400 leading-tight">Tickets Sent</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+
+    <!-- Generate QR codes -->
+    <div class="card">
+      <h2 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
+        <i class="fas fa-qrcode text-indigo-400"></i> Step 1: Generate QR Codes
+      </h2>
+      <p class="text-xs text-slate-400 mb-4">Creates unique QR code images for every attendee who doesn't already have one.</p>
+
+      <button @click="generateTickets()" :disabled="generating || {{ attendees|length }} === 0"
+        class="w-full btn-primary justify-center py-2.5"
+        :class="(generating || {{ attendees|length }} === 0) && 'opacity-60'">
+        <i class="fas fa-magic" :class="generating && 'fa-spin'"></i>
+        <span x-text="generating ? 'Generating…' : 'Generate QR Codes'"></span>
+      </button>
+
+      <div x-show="genResult" x-cloak
+        :class="genResult.errors?.length ? 'bg-amber-900/30 border-amber-700/50 text-amber-300' : 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300'"
+        class="mt-3 p-3 border rounded-lg text-xs" x-text="genResult.message">
+      </div>
+    </div>
+
+    <!-- Send tickets -->
+    <div class="card">
+      <h2 class="text-sm font-semibold text-white mb-1 flex items-center gap-2">
+        <i class="fas fa-paper-plane text-emerald-400"></i> Step 2: Send Tickets via GHL
+      </h2>
+      <p class="text-xs text-slate-400 mb-4">
+        {% if event.ghl_workflow_id %}
+        Triggers the GHL workflow for attendees. QR code URL is stored as a contact custom field.
+        {% else %}
+        <span class="text-amber-400"><i class="fas fa-exclamation-triangle mr-1"></i>No GHL workflow set. <a href="/events/{{ event.id }}/edit" class="underline">Edit event</a> to add one.</span>
+        {% endif %}
+      </p>
+
+      <!-- Resend toggle -->
+      <label class="flex items-center gap-3 mb-4 p-3 rounded-lg border cursor-pointer transition-colors select-none"
+        :class="resendAll ? 'border-amber-600/60 bg-amber-900/20' : 'border-slate-700 hover:border-slate-600'">
+        <input type="checkbox" x-model="resendAll" class="w-4 h-4 accent-amber-500" />
+        <div>
+          <p class="text-xs font-medium" :class="resendAll ? 'text-amber-300' : 'text-slate-300'">
+            <i class="fas fa-redo mr-1"></i> Resend to everyone
+          </p>
+          <p class="text-xs mt-0.5" :class="resendAll ? 'text-amber-400/70' : 'text-slate-500'">
+            Include attendees who have already received a ticket
+          </p>
+        </div>
+      </label>
+
+      <button @click="sendTickets()" :disabled="sending || !{{ 'true' if event.ghl_workflow_id else 'false' }}"
+        class="w-full btn-success justify-center py-2.5"
+        :class="(sending || !{{ 'true' if event.ghl_workflow_id else 'false' }}) && 'opacity-60'">
+        <i class="fas fa-paper-plane" :class="sending && 'fa-spin'"></i>
+        <span x-text="sending ? 'Sending…' : resendAll ? 'Send to All' : 'Send Tickets'"></span>
+      </button>
+
+      <!-- Live progress bar (shown while job is running) -->
+      <div x-show="jobProgress" x-cloak class="mt-3 space-y-2">
+        <div class="flex justify-between text-xs text-slate-400">
+          <span x-text="`Sending… ${jobProgress?.sent ?? 0} / ${jobProgress?.total ?? 0}`"></span>
+          <span x-text="`${jobProgress?.failed ?? 0} failed`"
+            :class="(jobProgress?.failed ?? 0) > 0 ? 'text-amber-400' : 'text-slate-500'"></span>
+        </div>
+        <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+          <div class="h-full rounded-full transition-all duration-500"
+            :class="(jobProgress?.failed ?? 0) > 0 ? 'bg-amber-500' : 'bg-emerald-500'"
+            :style="`width: ${jobProgress?.total ? Math.round(((jobProgress.sent + jobProgress.failed + jobProgress.skipped) / jobProgress.total) * 100) : 0}%`">
+          </div>
+        </div>
+        <p class="text-xs text-slate-500"
+          x-text="jobProgress?.status === 'done' ? '✅ Complete' : '⏳ Processing in background…'"></p>
+      </div>
+
+      <!-- Result summary (shown after job completes) -->
+      <div x-show="sendResult" x-cloak
+        :class="sendResult.failed > 0 ? 'bg-amber-900/30 border-amber-700/50 text-amber-300' : 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300'"
+        class="mt-3 p-3 border rounded-lg text-xs space-y-1">
+        <p x-text="sendResult.message"></p>
+        <template x-if="sendResult.errors && sendResult.errors.length">
+          <ul class="mt-1 space-y-0.5 opacity-80">
+            <template x-for="e in sendResult.errors" :key="e">
+              <li x-text="'• ' + e"></li>
+            </template>
+          </ul>
+        </template>
+      </div>
+
+      <!-- GHL connection test -->
+      <div class="mt-3 pt-3 border-t border-slate-700/50">
+        <button @click="testGHL()" :disabled="testingGHL"
+          class="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1.5">
+          <i class="fas fa-plug" :class="testingGHL && 'fa-spin'"></i>
+          <span x-text="testingGHL ? 'Testing…' : 'Test GHL connection'"></span>
+        </button>
+        <p x-show="ghlStatus" x-cloak class="mt-1.5 text-xs"
+          :class="ghlStatus.ok ? 'text-emerald-400' : 'text-red-400'"
+          x-text="ghlStatus.message"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attendees table -->
+  <div class="card">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold text-white">Attendee List</h2>
+      <div class="flex gap-2">
+        <input type="text" x-model="search" placeholder="Search…" class="input text-xs py-1.5 px-3 w-40" />
+        <button @click="loadAttendees()" class="btn-secondary text-xs py-1.5 px-3">
+          <i class="fas fa-sync" :class="loading && 'fa-spin'"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-slate-500 uppercase tracking-wider border-b border-slate-700">
+            <th class="text-left py-2 pr-3">Attendee</th>
+            <th class="text-left py-2 pr-3 hidden sm:table-cell">Ticket ID</th>
+            <th class="text-left py-2 pr-3">QR Code</th>
+            <th class="text-left py-2">Ticket Sent</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/50">
+          <template x-for="a in filteredAttendees" :key="a.id">
+            <tr class="hover:bg-slate-700/20">
+              <td class="py-2.5 pr-3">
+                <p class="text-white font-medium text-xs" x-text="fullName(a)"></p>
+                <p class="text-slate-500 text-xs" x-text="a.email || ''"></p>
+              </td>
+              <td class="py-2.5 pr-3 hidden sm:table-cell">
+                <code class="text-xs text-slate-400 font-mono" x-text="a.ticket_id ? a.ticket_id.substring(0,12) + '…' : '—'"></code>
+              </td>
+              <td class="py-2.5 pr-3">
+                <span x-show="a.qr_code_path" class="badge-green text-xs"><i class="fas fa-check mr-1"></i>Ready</span>
+                <span x-show="!a.qr_code_path" class="badge-yellow text-xs"><i class="fas fa-clock mr-1"></i>Pending</span>
+              </td>
+              <td class="py-2.5">
+                <span x-show="a.ticket_sent" class="badge-green text-xs"><i class="fas fa-envelope mr-1"></i>Sent</span>
+                <span x-show="!a.ticket_sent" class="badge-yellow text-xs"><i class="fas fa-clock mr-1"></i>Unsent</span>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function ticketManager(eventId, total, generated, sent, ghlApiKey, ghlLocationId) {
+  return {
+    attendees: {{ attendees | tojson }},
+    generatedCount: generated,
+    sentCount: sent,
+    total,
+    generating: false,
+    sending: false,
+    loading: false,
+    testingGHL: false,
+    genResult: null,
+    sendResult: null,
+    jobProgress: null,
+    ghlStatus: null,
+    resendAll: false,
+    search: '',
+
+    get filteredAttendees() {
+      if (!this.search) return this.attendees;
+      const s = this.search.toLowerCase();
+      return this.attendees.filter(a =>
+        (a.first_name || '').toLowerCase().includes(s) ||
+        (a.last_name || '').toLowerCase().includes(s) ||
+        (a.email || '').toLowerCase().includes(s)
+      );
+    },
+
+    fullName(a) {
+      return [a.first_name, a.last_name].filter(Boolean).join(' ') || a.email || 'Unknown';
+    },
+
+    async generateTickets() {
+      this.generating = true;
+      this.genResult = null;
+      try {
+        const res = await fetch(`/api/events/${eventId}/generate-tickets`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed');
+        this.generatedCount = data.generated + data.skipped;
+        this.genResult = {
+          message: `✅ Generated ${data.generated} new QR codes (${data.skipped} already existed)`,
+          errors: data.errors || [],
+        };
+        await this.loadAttendees();
+      } catch (e) {
+        this.genResult = { message: '❌ ' + e.message, errors: [e.message] };
+      } finally {
+        this.generating = false;
+      }
+    },
+
+    async sendTickets() {
+      const msg = this.resendAll
+        ? 'Send tickets to ALL attendees, including those who already received one?'
+        : 'Send tickets to all attendees who haven\'t received one yet?';
+      if (!confirm(msg)) return;
+
+      this.sending = true;
+      this.sendResult = null;
+      this.jobProgress = null;
+
+      try {
+        // Kick off background job — returns immediately
+        const res = await fetch(`/api/events/${eventId}/send-tickets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resend_all: this.resendAll }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed');
+
+        if (!data.job_id) {
+          // No attendees to send to
+          this.sendResult = { message: data.message || 'No attendees to send to.', failed: 0, errors: [] };
+          return;
+        }
+
+        // Show progress bar immediately
+        this.jobProgress = { status: 'running', total: data.total, sent: 0, failed: 0, skipped: 0 };
+
+        // Poll for progress every 2 seconds
+        const jobId = data.job_id;
+        const poll = async () => {
+          try {
+            const pr = await fetch(`/api/events/${eventId}/ticket-jobs/${jobId}`);
+            const pd = await pr.json();
+            this.jobProgress = pd;
+
+            if (pd.status === 'done') {
+              // Job complete — show summary
+              this.sentCount += pd.sent;
+              this.sendResult = {
+                message: `✅ Sent ${pd.sent} tickets. ${pd.skipped} skipped (no GHL ID). ${pd.failed} failed.`,
+                failed: pd.failed,
+                errors: pd.errors || [],
+              };
+              this.sending = false;
+              await this.loadAttendees();
+            } else {
+              // Still running — check again in 2s
+              setTimeout(poll, 2000);
+            }
+          } catch (e) {
+            this.sendResult = { message: '❌ Polling error: ' + e.message, failed: 1, errors: [] };
+            this.sending = false;
+          }
+        };
+        setTimeout(poll, 2000);
+
+      } catch (e) {
+        this.sendResult = { message: '❌ ' + e.message, failed: 1, errors: [] };
+        this.sending = false;
+      }
+    },
+
+    async loadAttendees() {
+      this.loading = true;
+      try {
+        const res = await fetch(`/api/events/${eventId}/attendees?limit=1000`);
+        this.attendees = await res.json();
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async testGHL() {
+      this.testingGHL = true;
+      this.ghlStatus = null;
+      try {
+        const params = new URLSearchParams({ api_key: ghlApiKey || '', location_id: ghlLocationId || '' });
+        const res = await fetch(`/api/ghl/test?${params}`);
+        const data = await res.json();
+        this.ghlStatus = data;
+      } catch (e) {
+        this.ghlStatus = { ok: false, message: e.message };
+      } finally {
+        this.testingGHL = false;
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

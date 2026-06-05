@@ -1,0 +1,531 @@
+{% extends "base.html" %}
+{% block title %}Check-Out — {{ event.name }}{% endblock %}
+{% block nav_checkout %}active{% endblock %}
+{% block nav_checkout_admin %}active{% endblock %}
+{% block nav_checkout_staff %}active{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-3">
+    <a href="/events/{{ event.id }}" class="text-slate-400 hover:text-white transition-colors">
+      <i class="fas fa-arrow-left text-sm"></i>
+    </a>
+    <div>
+      <h1 class="text-base font-semibold text-white leading-tight">{{ event.name }}</h1>
+      <p class="text-xs text-slate-400">{{ event.date.strftime('%d %b %Y, %H:%M') if event.date else '' }}{% if event.location %} · {{ event.location }}{% endif %}</p>
+    </div>
+  </div>
+{% endblock %}
+
+{% block head %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="checkoutApp({{ event.id }}, {{ checked_in }}, {{ checked_out }})" x-init="init()" class="max-w-6xl mx-auto">
+
+  <!-- Live stats bar -->
+  <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
+    <div class="bg-emerald-900/30 border border-emerald-700/50 rounded-xl p-3 sm:p-4 text-center">
+      <p class="text-2xl sm:text-3xl font-bold text-emerald-400" x-text="stats.checked_in">{{ checked_in }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">Checked In</p>
+    </div>
+    <div class="bg-amber-900/30 border border-amber-700/50 rounded-xl p-3 sm:p-4 text-center">
+      <p class="text-2xl sm:text-3xl font-bold text-amber-400" x-text="stats.checked_out">{{ checked_out }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">Checked Out</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4 text-center">
+      <p class="text-2xl sm:text-3xl font-bold text-slate-300" x-text="Math.max(0, stats.checked_in - stats.checked_out)">{{ [checked_in - checked_out, 0] | max }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">Still Inside</p>
+    </div>
+  </div>
+
+  <!-- Main layout -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+    <!-- QR Scanner card -->
+    <div class="card">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+          <i class="fas fa-qrcode text-amber-400"></i> Check-Out Scanner
+        </h2>
+        <button @click="toggleScanner()"
+          :class="scannerActive ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-amber-600 hover:bg-amber-700 text-white'"
+          class="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5">
+          <i :class="scannerActive ? 'fas fa-stop' : 'fas fa-camera'"></i>
+          <span x-text="scannerActive ? 'Stop' : 'Start Camera'"></span>
+        </button>
+      </div>
+
+      <!-- Camera selector -->
+      <div x-show="cameras.length > 0" x-cloak class="mb-3">
+        <label class="block text-xs text-slate-400 mb-1.5">
+          <i class="fas fa-video mr-1"></i> Camera
+          <span x-show="camerasLoading" class="text-slate-600 ml-1">(detecting…)</span>
+        </label>
+        <select x-model="selectedCamera" @change="onCameraChange()"
+          class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500 cursor-pointer">
+          <template x-for="cam in cameras" :key="cam.id">
+            <option :value="cam.id" x-text="cam.label || `Camera ${cam.id.substring(0,6)}`"></option>
+          </template>
+        </select>
+        <p class="text-xs text-slate-500 mt-1" x-text="cameraHint"></p>
+      </div>
+
+      <!-- Camera error -->
+      <div x-show="cameraError" x-cloak
+        class="mb-3 p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-xs text-red-300 flex items-start gap-2">
+        <i class="fas fa-exclamation-triangle mt-0.5 flex-shrink-0"></i>
+        <span x-text="cameraError"></span>
+      </div>
+
+      <!-- Camera viewport -->
+      <div class="relative bg-slate-900 rounded-xl overflow-hidden" style="min-height:260px;">
+        <div id="qr-reader" class="w-full"></div>
+        <div x-show="!scannerActive"
+          class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 pointer-events-none">
+          <i class="fas fa-camera text-slate-700 text-5xl mb-3"></i>
+          <p class="text-slate-400 text-sm font-medium">Camera is off</p>
+          <p class="text-slate-600 text-xs mt-1">
+            <span x-show="cameras.length === 0">Press "Start Camera" to begin</span>
+            <span x-show="cameras.length > 0" x-text="`${cameras.length} camera(s) found — press Start Camera`"></span>
+          </p>
+        </div>
+        <div x-show="scannerActive" x-cloak class="absolute bottom-3 right-3 pointer-events-none">
+          <div class="flex items-center gap-1.5 bg-black/70 rounded-full px-2.5 py-1 text-xs text-amber-400">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+            Scanning…
+          </div>
+        </div>
+        <div x-show="switching" x-cloak
+          class="absolute inset-0 bg-slate-900/80 flex items-center justify-center rounded-xl">
+          <div class="text-center text-slate-300">
+            <i class="fas fa-sync fa-spin text-2xl mb-2 block"></i>
+            <p class="text-xs">Switching camera…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scan result -->
+      <div x-show="lastResult" x-cloak
+        :class="{
+          'bg-amber-900/50 border-amber-600 text-amber-100':   lastResult?.status === 'checked_out',
+          'bg-yellow-900/50 border-yellow-600 text-yellow-100': lastResult?.status === 'duplicate',
+          'bg-orange-900/50 border-orange-600 text-orange-100': lastResult?.status === 'not_checked_in',
+          'bg-red-900/50 border-red-600 text-red-100':          lastResult?.status === 'not_found' || lastResult?.status === 'wrong_event',
+        }"
+        class="mt-3 p-4 rounded-xl border"
+        x-transition>
+        <div class="flex items-start gap-3">
+          <i :class="{
+            'fas fa-check-circle text-amber-400 text-xl':       lastResult?.status === 'checked_out',
+            'fas fa-exclamation-triangle text-yellow-400 text-xl': lastResult?.status === 'duplicate',
+            'fas fa-info-circle text-orange-400 text-xl':       lastResult?.status === 'not_checked_in',
+            'fas fa-times-circle text-red-400 text-xl':         lastResult?.status === 'not_found' || lastResult?.status === 'wrong_event',
+          }"></i>
+          <div>
+            <p class="font-semibold text-sm" x-text="lastResult?.message"></p>
+            <template x-if="lastResult?.attendee">
+              <p class="text-xs opacity-75 mt-0.5"
+                x-text="`${lastResult.attendee.email || ''} · ${lastResult.attendee.ticket_id?.substring(0,8).toUpperCase() || ''}`">
+              </p>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="space-y-4">
+
+      <!-- Manual search -->
+      <div class="card">
+        <h2 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+          <i class="fas fa-search text-amber-400"></i> Manual Search
+        </h2>
+        <div class="flex gap-2">
+          <input type="text" x-model="searchQuery"
+            @input.debounce.300ms="searchAttendees()"
+            @keydown.enter="searchAttendees()"
+            placeholder="Name, email or ticket ID…"
+            class="input flex-1 text-sm" />
+          <button @click="searchAttendees()" class="btn-secondary px-3">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+
+        <div x-show="searchResults.length > 0" x-cloak class="mt-3 space-y-2 max-h-60 overflow-y-auto">
+          <template x-for="a in searchResults" :key="a.id">
+            <div :class="a.is_vip ? 'bg-yellow-900/20 border border-yellow-700/40' : 'bg-slate-700/50'"
+              class="flex items-center gap-3 p-3 rounded-xl">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <p class="text-sm text-white font-medium" x-text="fullName(a)"></p>
+                  <span x-show="a.is_vip" class="text-yellow-400 text-xs"><i class="fas fa-crown"></i></span>
+                </div>
+                <p class="text-xs text-slate-400 truncate" x-text="a.email || ''"></p>
+                <div class="flex gap-1.5 mt-0.5">
+                  <span x-show="!a.checked_in" class="text-xs text-slate-500">Not checked in</span>
+                  <span x-show="a.checked_in && !a.checked_out" class="text-xs text-emerald-400"><i class="fas fa-check mr-1"></i>Checked in</span>
+                  <span x-show="a.checked_out" class="text-xs text-amber-400"><i class="fas fa-sign-out-alt mr-1"></i>Checked out</span>
+                </div>
+              </div>
+              <button @click="manualCheckout(a)"
+                :disabled="!a.checked_in || a.checked_out"
+                :class="(!a.checked_in || a.checked_out) ? 'opacity-40 cursor-not-allowed bg-slate-700 text-slate-400' : 'bg-amber-600 hover:bg-amber-700 text-white'"
+                class="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5">
+                <i class="fas fa-sign-out-alt"></i>
+                <span x-text="a.checked_out ? 'Done' : (!a.checked_in ? 'Not In' : 'Check Out')"></span>
+              </button>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="searchQuery.length > 1 && searchResults.length === 0 && !searching" x-cloak
+          class="mt-3 text-center text-sm text-slate-500 py-3">
+          No attendees found
+        </div>
+      </div>
+
+      <!-- Recent check-outs -->
+      <div class="card">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i class="fas fa-sign-out-alt text-amber-400"></i> Recent Check-Outs
+          </h2>
+          <span class="text-xs text-slate-500" x-text="`${recentCheckouts.length} shown`"></span>
+        </div>
+
+        <div x-show="recentCheckouts.length === 0" x-cloak class="text-center py-6 text-slate-600 text-sm">
+          <i class="fas fa-door-open text-2xl mb-2 block"></i>
+          No check-outs yet
+        </div>
+
+        <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+          <template x-for="(a, i) in recentCheckouts" :key="a.id">
+            <div :class="a.is_vip ? 'bg-yellow-900/20 border-yellow-700/40' : i === 0 ? 'bg-amber-900/20 border-amber-700/40' : 'bg-slate-700/30 border-slate-700/30'"
+              class="flex items-center gap-3 p-2.5 rounded-lg border transition-all" x-transition>
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                :class="a.is_vip ? 'bg-yellow-700 text-yellow-100' : i === 0 ? 'bg-amber-700 text-amber-100' : 'bg-slate-600 text-slate-300'"
+                x-text="(a.full_name || '?').charAt(0).toUpperCase()">
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <p class="text-xs text-white font-medium truncate" x-text="a.full_name || 'Unknown'"></p>
+                  <span x-show="a.is_vip" class="text-yellow-400 text-xs flex-shrink-0"><i class="fas fa-crown"></i></span>
+                </div>
+                <p class="text-xs text-slate-500 truncate" x-text="a.email || ''"></p>
+              </div>
+              <p class="text-xs text-slate-500 flex-shrink-0" x-text="formatTime(a.checked_out_at)"></p>
+            </div>
+          </template>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function checkoutApp(eventId, checkedIn, checkedOut) {
+  return {
+    stats: { checked_in: checkedIn, checked_out: checkedOut },
+
+    scanner:       null,
+    scannerActive: false,
+    switching:     false,
+
+    cameras:        [],
+    selectedCamera: null,
+    camerasLoading: false,
+    cameraError:    null,
+
+    lastResult:      null,
+    lastResultTimer: null,
+    searchQuery:     '',
+    searchResults:   [],
+    searching:       false,
+    recentCheckouts: [],
+    pollTimer:       null,
+
+    get cameraHint() {
+      if (!this.selectedCamera || !this.cameras.length) return '';
+      const cam = this.cameras.find(c => c.id === this.selectedCamera);
+      if (!cam) return '';
+      const lbl = (cam.label || '').toLowerCase();
+      if (lbl.includes('back') || lbl.includes('rear') || lbl.includes('environment')) return '📷 Back / rear camera selected';
+      if (lbl.includes('front') || lbl.includes('face') || lbl.includes('user') || lbl.includes('selfie')) return '🤳 Front / selfie camera selected';
+      return '🖥️ ' + (cam.label || 'Camera selected');
+    },
+
+    async init() {
+      await this.loadRecentCheckouts();
+      await this.detectCameras();
+      this.connectSSE();
+      // 30s fallback poll
+      this.pollTimer = setInterval(() => {
+        this.refreshStats();
+        this.loadRecentCheckouts();
+      }, 30000);
+    },
+
+    // ── Server-Sent Events ────────────────────────────────────
+    connectSSE() {
+      if (this._es) this._es.close();
+      this._es = new EventSource(`/api/events/${eventId}/live`);
+      this._es.onmessage = (e) => {
+        try { this.handleLiveEvent(JSON.parse(e.data)); } catch (_) {}
+      };
+    },
+
+    handleLiveEvent(data) {
+      if (data.stats) {
+        this.stats.checked_in  = data.stats.checked_in;
+        this.stats.checked_out = data.stats.checked_out;
+      }
+      if (data.type === 'checkout') {
+        this.recentCheckouts = [
+          data.attendee,
+          ...this.recentCheckouts.filter(a => a.id !== data.attendee.id).slice(0, 19),
+        ];
+      }
+    },
+
+    async detectCameras() {
+      this.camerasLoading = true;
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        this.cameras = devices;
+        if (devices.length > 0 && !this.selectedCamera) {
+          const back = devices.find(d => {
+            const l = (d.label || '').toLowerCase();
+            return l.includes('back') || l.includes('rear') || l.includes('environment');
+          });
+          this.selectedCamera = back ? back.id : devices[0].id;
+        }
+      } catch (e) {
+        console.log('Camera pre-enumerate:', e.message);
+      } finally {
+        this.camerasLoading = false;
+      }
+    },
+
+    async toggleScanner() {
+      if (this.scannerActive) await this.stopScanner();
+      else await this.startScanner();
+    },
+
+    async startScanner() {
+      this.cameraError = null;
+      const el = document.getElementById('qr-reader');
+      if (el) el.innerHTML = '';
+
+      const qr = new Html5Qrcode('qr-reader');
+      this.scanner = qr;
+
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices.length > 0) {
+          this.cameras = devices;
+          const stillExists = devices.find(d => d.id === this.selectedCamera);
+          if (!stillExists) {
+            const back = devices.find(d => {
+              const l = (d.label || '').toLowerCase();
+              return l.includes('back') || l.includes('rear') || l.includes('environment');
+            });
+            this.selectedCamera = back ? back.id : devices[0].id;
+          }
+        }
+      } catch (e) {}
+
+      const cameraConstraint = this.selectedCamera ? this.selectedCamera : { facingMode: 'environment' };
+      const config = {
+        fps: 15,
+        qrbox: (w, h) => {
+          const size = Math.min(w, h, 300) * 0.7;
+          return { width: Math.round(size), height: Math.round(size) };
+        },
+        aspectRatio: 1.0,
+        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+        showTorchButtonIfSupported: true,
+      };
+
+      try {
+        await qr.start(cameraConstraint, config, (decoded) => this.onScan(decoded), (_err) => {});
+        this.scannerActive = true;
+      } catch (e) {
+        this.scanner = null;
+        let msg = 'Could not start camera.';
+        if (e.message?.includes('permission') || e.name === 'NotAllowedError') {
+          msg = 'Camera permission denied. Please allow camera access in your browser settings.';
+        } else if (e.name === 'NotFoundError') {
+          msg = 'No camera found on this device.';
+        } else if (e.name === 'NotReadableError') {
+          msg = 'Camera is in use by another app.';
+        } else if (e.message) {
+          msg = e.message;
+        }
+        this.cameraError = msg;
+      }
+    },
+
+    async stopScanner() {
+      if (this.scanner) {
+        try {
+          if (this.scannerActive) await this.scanner.stop();
+          this.scanner.clear();
+        } catch (e) {}
+        this.scanner = null;
+      }
+      this.scannerActive = false;
+    },
+
+    async onCameraChange() {
+      if (!this.scannerActive) return;
+      this.switching = true;
+      await this.stopScanner();
+      await new Promise(r => setTimeout(r, 400));
+      await this.startScanner();
+      this.switching = false;
+    },
+
+    async onScan(ticketId) {
+      if (this._lastScannedId === ticketId) return;
+      this._lastScannedId = ticketId;
+      setTimeout(() => { this._lastScannedId = null; }, 2000);
+
+      if (navigator.vibrate) navigator.vibrate(50);
+
+      try {
+        const res = await fetch('/api/checkin/checkout-scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticket_id: ticketId, event_id: eventId }),
+        });
+        const data = await res.json();
+        this.showResult(data);
+
+        if (data.success) {
+          this.stats.checked_out++;
+          await this.loadRecentCheckouts();
+          this.playSuccess();
+          if (navigator.vibrate) navigator.vibrate([50, 50, 100]);
+        } else if (data.status === 'duplicate') {
+          this.playDuplicate();
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        } else {
+          this.playError();
+          if (navigator.vibrate) navigator.vibrate([200]);
+        }
+      } catch (e) {
+        this.showResult({ success: false, status: 'not_found', message: `Network error: ${e.message}` });
+        this.playError();
+      }
+    },
+
+    showResult(result) {
+      this.lastResult = result;
+      if (this.lastResultTimer) clearTimeout(this.lastResultTimer);
+      this.lastResultTimer = setTimeout(() => { this.lastResult = null; }, 5000);
+    },
+
+    fullName(a) {
+      return [a.first_name, a.last_name].filter(Boolean).join(' ') || a.email || 'Unknown';
+    },
+
+    formatTime(iso) {
+      if (!iso) return '';
+      return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    },
+
+    async searchAttendees() {
+      if (this.searchQuery.length < 2) { this.searchResults = []; return; }
+      this.searching = true;
+      try {
+        const res = await fetch(`/api/events/${eventId}/attendees?search=${encodeURIComponent(this.searchQuery)}&limit=10`);
+        this.searchResults = await res.json();
+      } finally {
+        this.searching = false;
+      }
+    },
+
+    async manualCheckout(attendee) {
+      if (!attendee.checked_in || attendee.checked_out) return;
+      try {
+        const res = await fetch('/api/checkin/manual-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attendee_id: attendee.id }),
+        });
+        const data = await res.json();
+        this.showResult(data);
+        if (data.success) {
+          attendee.checked_out = true;
+          this.stats.checked_out++;
+          await this.loadRecentCheckouts();
+          this.playSuccess();
+          const found = this.searchResults.find(a => a.id === attendee.id);
+          if (found) found.checked_out = true;
+        }
+      } catch (e) {
+        this.showResult({ success: false, status: 'not_found', message: e.message });
+      }
+    },
+
+    async loadRecentCheckouts() {
+      try {
+        const res = await fetch(`/api/events/${eventId}/checkout/recent?limit=20`);
+        this.recentCheckouts = await res.json();
+      } catch (e) {}
+    },
+
+    async refreshStats() {
+      try {
+        const res = await fetch(`/api/events/${eventId}/stats`);
+        const data = await res.json();
+        this.stats.checked_in  = data.checked_in_count;
+        this.stats.checked_out = data.checked_out_count;
+      } catch (e) {}
+    },
+
+    _audioCtx() {
+      return new (window.AudioContext || window.webkitAudioContext)();
+    },
+    _beep(ctx, freq, start, duration, type = 'sine', vol = 0.3) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(vol, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + duration + 0.05);
+    },
+    playSuccess() {
+      try {
+        const ctx = this._audioCtx();
+        this._beep(ctx, 440, 0, 0.12);
+        this._beep(ctx, 660, 0.13, 0.18);
+      } catch (e) {}
+    },
+    playDuplicate() {
+      try {
+        const ctx = this._audioCtx();
+        this._beep(ctx, 330, 0, 0.1, 'sine', 0.25);
+        this._beep(ctx, 330, 0.15, 0.1, 'sine', 0.25);
+      } catch (e) {}
+    },
+    playError() {
+      try {
+        const ctx = this._audioCtx();
+        this._beep(ctx, 200, 0, 0.3, 'square', 0.2);
+      } catch (e) {}
+    },
+  };
+}
+</script>
+{% endblock %}

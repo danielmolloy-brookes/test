@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% block title %}Monitor — {{ event.name }}{% endblock %}
+{% block nav_monitor %}active{% endblock %}
+{% block nav_monitor_staff %}active{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-3">
+    <a href="/checkin/{{ event.id }}" class="text-slate-400 hover:text-white transition-colors">
+      <i class="fas fa-arrow-left text-sm"></i>
+    </a>
+    <div>
+      <h1 class="text-base font-semibold text-white leading-tight">{{ event.name }}</h1>
+      <p class="text-xs text-slate-400">Check-In Monitor</p>
+    </div>
+  </div>
+{% endblock %}
+
+{% block header_actions %}
+  <div class="flex items-center gap-2 text-xs">
+    <span class="w-2 h-2 rounded-full animate-pulse" :class="connected ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+    <span :class="connected ? 'text-emerald-400' : 'text-amber-400'" x-text="connected ? 'Live' : 'Reconnecting…'"></span>
+  </div>
+{% endblock %}
+
+{% block content %}
+<div x-data="monitorApp({{ event.id }})" x-init="start()">
+
+  <!-- Stats strip -->
+  <div class="grid grid-cols-5 gap-1.5 sm:gap-3 mb-5">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-2 sm:p-3 text-center">
+      <p class="text-lg sm:text-2xl font-bold text-white" x-text="stats.total">—</p>
+      <p class="text-[10px] sm:text-xs text-slate-400 leading-tight">Total</p>
+    </div>
+    <div class="bg-emerald-900/30 border border-emerald-700/50 rounded-xl p-2 sm:p-3 text-center">
+      <p class="text-lg sm:text-2xl font-bold text-emerald-400" x-text="stats.checked_in">—</p>
+      <p class="text-[10px] sm:text-xs text-slate-400 leading-tight">
+        <span class="sm:hidden">In</span><span class="hidden sm:inline">Checked In</span>
+      </p>
+    </div>
+    <div class="bg-indigo-900/30 border border-indigo-700/50 rounded-xl p-2 sm:p-3 text-center">
+      <p class="text-lg sm:text-2xl font-bold text-indigo-400" x-text="awaiting.length">—</p>
+      <p class="text-[10px] sm:text-xs text-slate-400 leading-tight">
+        <span class="sm:hidden">Waiting</span><span class="hidden sm:inline">Awaiting Badge</span>
+      </p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-2 sm:p-3 text-center">
+      <p class="text-lg sm:text-2xl font-bold text-slate-300" x-text="done.length">—</p>
+      <p class="text-[10px] sm:text-xs text-slate-400 leading-tight">
+        <span class="sm:hidden">Issued</span><span class="hidden sm:inline">Badges Issued</span>
+      </p>
+    </div>
+    <div class="bg-red-900/30 border border-red-700/50 rounded-xl p-2 sm:p-3 text-center">
+      <p class="text-lg sm:text-2xl font-bold text-red-400" x-text="invalid.length">—</p>
+      <p class="text-[10px] sm:text-xs text-slate-400 leading-tight">
+        <span class="sm:hidden">Invalid</span><span class="hidden sm:inline">Invalid Scans</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- Invalid scan warnings -->
+  <template x-if="invalid.length > 0">
+    <div class="mb-4 space-y-2">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-semibold text-red-400 uppercase tracking-wider flex items-center gap-2">
+          <i class="fas fa-exclamation-circle"></i> Invalid Scan Attempts
+        </h3>
+        <button @click="clearAllInvalid()"
+          class="text-xs text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1">
+          <i class="fas fa-trash-alt"></i> Clear all
+        </button>
+      </div>
+      <template x-for="entry in invalid" :key="entry.id">
+        <div class="flex items-center gap-3 p-3 rounded-xl border border-red-700/50 bg-red-900/20"
+          x-transition:enter="transition ease-out duration-300"
+          x-transition:enter-start="opacity-0 -translate-y-1"
+          x-transition:enter-end="opacity-100 translate-y-0"
+          x-transition:leave="transition ease-in duration-150"
+          x-transition:leave-start="opacity-100 scale-100"
+          x-transition:leave-end="opacity-0 scale-95">
+          <div class="w-9 h-9 rounded-full bg-red-900 flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-times text-red-400"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-red-300"
+              x-text="entry.result === 'wrong_event' ? 'Wrong Event' : 'Invalid QR Code'"></p>
+            <p class="text-xs text-red-400/70 font-mono mt-0.5"
+              x-text="entry.scanned_ticket_id ? 'Ticket: ' + entry.scanned_ticket_id.substring(0,12).toUpperCase() + '…' : 'Unknown ticket'"></p>
+          </div>
+          <p class="text-xs text-slate-500 flex-shrink-0 mr-2" x-text="formatTime(entry.scanned_at)"></p>
+          <button @click="dismissInvalid(entry)"
+            class="text-slate-600 hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-900/40 flex-shrink-0"
+            title="Dismiss">
+            <i class="fas fa-times text-xs"></i>
+          </button>
+        </div>
+      </template>
+    </div>
+  </template>
+
+  <!-- ── Single-column main layout ── -->
+  <div class="space-y-8">
+
+    <!-- LEFT: Awaiting badge -->
+    <div>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+          <i class="fas fa-id-badge text-indigo-400"></i>
+          Awaiting Badge
+          <span x-show="awaiting.length > 0"
+            class="bg-indigo-600 text-white text-xs rounded-full px-2 py-0.5 font-bold"
+            x-text="awaiting.length"></span>
+        </h2>
+        <span class="text-xs text-slate-500">Tap ✓ to issue badge</span>
+      </div>
+
+      <div x-show="awaiting.length === 0"
+        class="text-center py-12 text-slate-600 border border-slate-700/40 rounded-xl bg-slate-800/20">
+        <i class="fas fa-check-circle text-3xl mb-2 block text-slate-700"></i>
+        <p class="text-sm">All clear — no one waiting</p>
+      </div>
+
+      <div class="space-y-2">
+        <template x-for="entry in awaiting" :key="entry.id + '-aw'">
+          <div
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 -translate-x-3"
+            x-transition:enter-end="opacity-100 translate-x-0"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 translate-x-0"
+            x-transition:leave-end="opacity-0 translate-x-6"
+            :class="{
+              'border-emerald-600/60 bg-emerald-900/20': entry.result === 'success' && !entry.is_vip,
+              'border-yellow-500/70  bg-yellow-900/25':  entry.result === 'success' && entry.is_vip,
+              'border-amber-600/50   bg-amber-900/20':   entry.result === 'duplicate',
+            }"
+            class="flex items-center gap-4 p-4 rounded-xl border">
+
+            <!-- Avatar -->
+            <div class="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-lg font-bold"
+              :class="{
+                'bg-emerald-800 text-emerald-100': entry.result === 'success' && !entry.is_vip,
+                'bg-yellow-700  text-yellow-100':  entry.result === 'success' && entry.is_vip,
+                'bg-amber-800   text-amber-100':   entry.result === 'duplicate',
+              }"
+              x-text="(entry.full_name || '?').charAt(0).toUpperCase()">
+            </div>
+
+            <!-- Info -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-white font-bold text-lg leading-tight" x-text="entry.full_name || 'Unknown'"></p>
+                <span x-show="entry.is_vip"
+                  class="inline-flex items-center gap-1 text-xs font-bold text-yellow-300 bg-yellow-900/50 border border-yellow-600/60 rounded-full px-2 py-0.5">
+                  <i class="fas fa-crown"></i> VIP
+                </span>
+                <span x-show="entry.result === 'duplicate'"
+                  class="text-xs text-amber-400 bg-amber-900/30 border border-amber-700/40 rounded-full px-2 py-0.5">
+                  Already checked in
+                </span>
+              </div>
+              <p x-show="entry.company" class="text-base text-slate-300 font-medium mt-0.5" x-text="entry.company"></p>
+              <p class="text-xs text-slate-500 mt-0.5" x-text="entry.email || ''"></p>
+              <p x-show="entry.notes" class="text-xs text-slate-400 italic mt-0.5" x-text="entry.notes"></p>
+            </div>
+
+            <!-- Time + issue button -->
+            <div class="flex flex-col items-end gap-2 flex-shrink-0">
+              <p class="text-xs text-slate-500" x-text="formatTime(entry.scanned_at)"></p>
+              <button @click="issueBadge(entry)"
+                class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all
+                       bg-slate-700 hover:bg-emerald-700 text-slate-300 hover:text-white border border-slate-600 hover:border-emerald-600 active:scale-95">
+                <i class="fas fa-check"></i> Badge Issued
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- RIGHT: Badges issued -->
+    <div>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-slate-400 flex items-center gap-2">
+          <i class="fas fa-check-double text-emerald-600"></i>
+          Badges Issued
+          <span x-show="done.length > 0"
+            class="bg-slate-700 text-slate-300 text-xs rounded-full px-2 py-0.5"
+            x-text="done.length"></span>
+        </h2>
+      </div>
+
+      <div x-show="done.length === 0"
+        class="text-center py-12 text-slate-700 border border-slate-800 rounded-xl">
+        <i class="fas fa-ticket-alt text-3xl mb-2 block text-slate-800"></i>
+        <p class="text-sm">No badges issued yet</p>
+      </div>
+
+      <div class="space-y-2">
+        <template x-for="entry in done" :key="entry.id + '-done'">
+          <div
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-x-3"
+            x-transition:enter-end="opacity-100 translate-x-0"
+            class="flex items-center gap-3 p-3 rounded-xl bg-slate-800/40 border border-slate-700/40">
+
+            <!-- Avatar -->
+            <div class="w-9 h-9 rounded-full bg-emerald-900/60 border border-emerald-800 flex items-center justify-center text-sm font-bold text-emerald-400 flex-shrink-0"
+              x-text="(entry.full_name || '?').charAt(0).toUpperCase()">
+            </div>
+
+            <!-- Info -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5">
+                <p class="text-sm font-semibold text-slate-300 truncate" x-text="entry.full_name || 'Unknown'"></p>
+                <span x-show="entry.is_vip" class="text-yellow-600 text-xs flex-shrink-0"><i class="fas fa-crown"></i></span>
+              </div>
+              <p x-show="entry.company" class="text-xs text-slate-500 truncate" x-text="entry.company"></p>
+            </div>
+
+            <!-- Issued indicator + undo -->
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span class="text-xs text-emerald-600 flex items-center gap-1">
+                <i class="fas fa-check-circle"></i>
+              </span>
+              <button @click="undoBadge(entry)" title="Undo"
+                class="text-slate-600 hover:text-amber-400 transition-colors text-xs p-1 rounded hover:bg-slate-700">
+                <i class="fas fa-undo"></i>
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+  </div><!-- end two-column -->
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function monitorApp(eventId) {
+  return {
+    activity:  [],
+    stats:     { total: 0, checked_in: 0 },
+    connected: true,
+    _badgeState: {},
+    _lastId: 0,
+
+    get invalid() {
+      return this.activity.filter(e => e.result === 'not_found' || e.result === 'wrong_event');
+    },
+
+    get awaiting() {
+      const seen = new Set();
+      // activity is newest-first from the API; reverse so newest arrivals appear at the bottom
+      return this.activity.filter(e => {
+        if (e.result === 'not_found' || e.result === 'wrong_event') return false;
+        if (!e.attendee_id || seen.has(e.attendee_id)) return false;
+        seen.add(e.attendee_id);
+        return !(this._badgeState[e.attendee_id] ?? e.badge_issued);
+      }).reverse();
+    },
+
+    get done() {
+      const seen = new Set();
+      return this.activity.filter(e => {
+        if (e.result === 'not_found' || e.result === 'wrong_event') return false;
+        if (!e.attendee_id || seen.has(e.attendee_id)) return false;
+        seen.add(e.attendee_id);
+        return this._badgeState[e.attendee_id] ?? e.badge_issued;
+      });
+    },
+
+    start() {
+      this.connectSSE();
+      this.poll();         // 500ms fallback poll — SSE fires first on all live events
+      this.refreshStats();
+    },
+
+    // ── Server-Sent Events ────────────────────────────────────
+    connectSSE() {
+      if (this._es) this._es.close();
+      this._es = new EventSource(`/api/events/${eventId}/live`);
+      this._es.onopen  = () => { this.connected = true; };
+      this._es.onerror = () => { this.connected = false; };
+      this._es.onmessage = (e) => {
+        try { this.handleLiveEvent(JSON.parse(e.data)); } catch (_) {}
+      };
+    },
+
+    handleLiveEvent(data) {
+      if (data.type === 'activity') {
+        // Prepend if not already present (poll may have added it already)
+        if (!this.activity.find(e => e.id === data.entry.id)) {
+          this.activity = [data.entry, ...this.activity.slice(0, 49)];
+        }
+        if (data.stats) {
+          this.stats.total      = data.stats.total;
+          this.stats.checked_in = data.stats.checked_in;
+        }
+      } else if (data.type === 'badge_issued') {
+        // Update all activity rows for this attendee + clear local optimistic override
+        this.activity = this.activity.map(e =>
+          e.attendee_id === data.attendee_id ? { ...e, badge_issued: data.badge_issued } : e
+        );
+        const s = { ...this._badgeState };
+        delete s[data.attendee_id];
+        this._badgeState = s;
+      } else if (data.type === 'log_deleted') {
+        this.activity = this.activity.filter(e => e.id !== data.log_id);
+      }
+    },
+
+    async poll() {
+      try {
+        const res = await fetch(`/api/events/${eventId}/checkin/activity?limit=50`);
+        if (res.ok) {
+          this.activity = await res.json();
+          this.connected = true;
+        } else {
+          this.connected = false;
+        }
+      } catch (e) {
+        this.connected = false;
+      }
+      setTimeout(() => this.poll(), 500);
+    },
+
+    async refreshStats() {
+      try {
+        const res = await fetch(`/api/events/${eventId}/stats`);
+        if (res.ok) {
+          const d = await res.json();
+          this.stats.total      = d.total_attendees;
+          this.stats.checked_in = d.checked_in_count;
+        }
+      } catch (e) {}
+      setTimeout(() => this.refreshStats(), 10000);
+    },
+
+    async dismissInvalid(entry) {
+      // Remove from local list immediately for instant feedback
+      this.activity = this.activity.filter(e => e.id !== entry.id);
+      try {
+        await fetch(`/api/checkin/scan-log/${entry.id}`, { method: 'DELETE' });
+      } catch (e) {
+        // Re-add on failure (will reappear on next poll anyway)
+      }
+    },
+
+    async clearAllInvalid() {
+      const toDelete = this.invalid.slice();
+      this.activity = this.activity.filter(e => e.result !== 'not_found' && e.result !== 'wrong_event');
+      await Promise.allSettled(
+        toDelete.map(e => fetch(`/api/checkin/scan-log/${e.id}`, { method: 'DELETE' }))
+      );
+    },
+
+    async issueBadge(entry) {
+      // Replace the whole object so Alpine detects the change and re-runs computed getters
+      this._badgeState = { ...this._badgeState, [entry.attendee_id]: true };
+      try {
+        await fetch(`/api/attendees/${entry.attendee_id}/badge-issued`, { method: 'POST' });
+      } catch (e) {
+        this._badgeState = { ...this._badgeState, [entry.attendee_id]: false };
+      }
+    },
+
+    async undoBadge(entry) {
+      this._badgeState = { ...this._badgeState, [entry.attendee_id]: false };
+      try {
+        await fetch(`/api/attendees/${entry.attendee_id}/badge-issued`, { method: 'POST' });
+      } catch (e) {
+        this._badgeState = { ...this._badgeState, [entry.attendee_id]: true };
+      }
+    },
+
+    formatTime(iso) {
+      if (!iso) return '';
+      return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    },
+  };
+}
+</script>
+{% endblock %}

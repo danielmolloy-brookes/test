@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}Archive — OTTG Events{% endblock %}
+{% block nav_archive %}active{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-2">
+    <i class="fas fa-archive text-slate-400"></i>
+    <h1 class="text-lg font-semibold text-white">Archive</h1>
+    {% if total %}
+    <span class="text-xs text-slate-500 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-full">
+      {{ total }} event{{ 's' if total != 1 else '' }}
+    </span>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block header_actions %}
+  <a href="/dashboard" class="btn-secondary text-xs">
+    <i class="fas fa-th-large"></i> Dashboard
+  </a>
+{% endblock %}
+
+{% block content %}
+{#
+  IMPORTANT: No nested x-data on group divs.
+  Open/close state lives in archivePage() so restoreEvent() is always in scope.
+#}
+<div x-data="archivePage()">
+
+  {% if not total %}
+  <div class="flex flex-col items-center justify-center py-24 text-center">
+    <div class="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mb-6 border border-slate-700">
+      <i class="fas fa-archive text-slate-600 text-4xl"></i>
+    </div>
+    <h2 class="text-xl font-semibold text-white mb-2">Archive is empty</h2>
+    <p class="text-slate-400 text-sm max-w-sm">
+      Archived events appear here. Their attendee data and reports are never deleted.
+    </p>
+  </div>
+
+  {% else %}
+
+  <p class="text-sm text-slate-400 mb-6">
+    Archived events are hidden from the dashboard but all data and reports are fully preserved.
+    Restore an event at any time to bring it back, or manage it to change its folder.
+  </p>
+
+  <!-- ── Group sections ── (no nested x-data — open state is in archivePage()) -->
+  {% for group in groups %}
+  <div class="mb-8">
+
+    <!-- Group header / toggle -->
+    <button @click="toggleGroup({{ loop.index }})"
+      class="w-full flex items-center gap-3 mb-3 group text-left">
+      {% if group.folder_name %}
+      <span class="w-3 h-3 rounded-sm flex-shrink-0"
+        style="background-color: {{ group.folder_color or '#6366f1' }};"></span>
+      <span class="text-sm font-semibold text-slate-200 group-hover:text-white transition-colors">
+        {{ group.folder_name }}
+      </span>
+      {% else %}
+      <span class="w-3 h-3 rounded-sm flex-shrink-0 bg-slate-600"></span>
+      <span class="text-sm font-semibold text-slate-400">No folder</span>
+      {% endif %}
+      <span class="text-xs text-slate-500 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-full">
+        {{ group.events|length }} event{{ 's' if group.events|length != 1 else '' }}
+      </span>
+      <i class="fas fa-chevron-down text-slate-500 text-xs ml-auto transition-transform duration-200"
+         :class="isGroupOpen({{ loop.index }}) ? '' : '-rotate-90'"></i>
+    </button>
+
+    <!-- Event cards -->
+    <div x-show="isGroupOpen({{ loop.index }})" x-transition class="space-y-3 pl-6">
+      {% for event in group.events %}
+      <div class="card border-slate-700/60 hover:border-slate-600 transition-colors opacity-90">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+
+          <!-- Info -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 bg-slate-700/40 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-calendar-alt text-slate-500"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h3 class="text-base font-semibold text-slate-300 truncate">{{ event.name }}</h3>
+                  <span class="badge-yellow text-xs">
+                    <i class="fas fa-archive mr-1"></i>Archived
+                    {% if event.archived_at %} {{ event.archived_at.strftime('%d %b %Y') }}{% endif %}
+                  </span>
+                  {% if event.folder_name %}
+                  <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border"
+                    style="color:{{ event.folder_color }}; border-color:{{ event.folder_color }}44; background-color:{{ event.folder_color }}11;">
+                    <i class="fas fa-folder text-[10px]"></i> {{ event.folder_name }}
+                  </span>
+                  {% endif %}
+                </div>
+                <div class="flex flex-wrap gap-3 mt-1 text-xs text-slate-500">
+                  <span><i class="fas fa-clock mr-1"></i>{{ event.date.strftime('%d %b %Y, %H:%M') if event.date else 'TBC' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="flex flex-wrap gap-2 text-xs">
+            <div class="flex items-center gap-1.5 bg-slate-700/40 rounded-lg px-2.5 py-1.5">
+              <i class="fas fa-users text-slate-500"></i>
+              <span class="text-slate-400 font-medium">{{ event.total_attendees }}</span>
+              <span class="text-slate-600">attendees</span>
+            </div>
+            <div class="flex items-center gap-1.5 bg-slate-700/40 rounded-lg px-2.5 py-1.5">
+              <i class="fas fa-check-circle {% if event.checked_in_count > 0 %}text-emerald-600{% else %}text-slate-500{% endif %}"></i>
+              <span class="text-slate-400 font-medium">{{ event.checked_in_count }}</span>
+              <span class="text-slate-600">checked in</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-2 flex-wrap">
+            <a href="/events/{{ event.id }}" class="btn-secondary text-xs py-1.5 px-3">
+              <i class="fas fa-cog"></i> Manage
+            </a>
+            <a href="/reports/{{ event.id }}" class="btn-secondary text-xs py-1.5 px-3">
+              <i class="fas fa-chart-bar"></i> Report
+            </a>
+            <!-- single-quoted so JSON event name doesn't break the HTML attribute -->
+            <button @click='restoreEvent({{ event.id }}, {{ event.name | tojson }})'
+              class="btn-secondary text-xs py-1.5 px-3 hover:bg-emerald-700 hover:text-white hover:border-emerald-600 transition-colors">
+              <i class="fas fa-undo"></i> Restore
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  {% endif %}
+
+  <!-- ── Folder management panel ── -->
+  <!-- This section uses its own x-data which is fine — it only calls its own methods -->
+  <div class="mt-8 pt-6 border-t border-slate-700/50" x-data="folderManager()" x-init="load()">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+        <i class="fas fa-folder mr-2"></i>Manage Folders
+      </h2>
+      <button @click="showCreate = !showCreate" class="btn-secondary text-xs">
+        <i class="fas fa-plus"></i> New Folder
+      </button>
+    </div>
+
+    <!-- Create form -->
+    <div x-show="showCreate" x-cloak x-transition class="card mb-4">
+      <h3 class="text-sm font-medium text-white mb-3">Create Folder</h3>
+      <div class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-48">
+          <label class="label text-xs">Folder name</label>
+          <input x-model="newName" type="text" placeholder="e.g. 2025 Recruitment Events"
+            class="input text-sm" @keydown.enter="createFolder()" />
+        </div>
+        <div>
+          <label class="label text-xs">Colour</label>
+          <div class="flex gap-1.5 flex-wrap">
+            {% set colours = ['#6366f1','#10b981','#f43f5e','#f59e0b','#3b82f6','#a855f7','#14b8a6','#f97316'] %}
+            {% for c in colours %}
+            <button type="button" @click="newColor = '{{ c }}'"
+              :class="newColor === '{{ c }}' ? 'ring-2 ring-white ring-offset-1 ring-offset-slate-800 scale-110' : ''"
+              class="w-6 h-6 rounded-full transition-all"
+              style="background-color: {{ c }};"></button>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button @click="createFolder()" class="btn-primary text-xs">Create</button>
+          <button @click="showCreate = false; newName = ''" class="btn-secondary text-xs">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Folder list -->
+    <div x-show="!loading && folders.length === 0" x-cloak class="text-sm text-slate-500 py-2">
+      No folders yet. Create one above to start organising events.
+    </div>
+    <div class="space-y-2">
+      <template x-for="folder in folders" :key="folder.id">
+        <div class="flex items-center gap-3 p-3 bg-slate-800 border border-slate-700 rounded-xl">
+          <span class="w-4 h-4 rounded flex-shrink-0" :style="`background-color:${folder.color}`"></span>
+          <span class="text-sm text-white flex-1" x-text="folder.name"></span>
+          <span class="text-xs text-slate-500"
+            x-text="`${folder.event_count} event${folder.event_count !== 1 ? 's' : ''}`"></span>
+          <button @click="deleteFolder(folder)"
+            class="text-xs text-slate-600 hover:text-red-400 transition-colors px-2 py-1">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </template>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function archivePage() {
+    return {
+      // Group open/close state keyed by loop index (1-based).
+      // Undefined = open (default); false = collapsed.
+      openGroups: {},
+
+      isGroupOpen(idx) {
+        return this.openGroups[idx] !== false;
+      },
+
+      toggleGroup(idx) {
+        this.openGroups[idx] = !this.isGroupOpen(idx);
+      },
+
+      async restoreEvent(eventId, eventName) {
+        if (!confirm(`Restore "${eventName}" to the dashboard?`)) return;
+        try {
+          const res  = await fetch(`/api/events/${eventId}/unarchive`, { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: data.message, type: 'success' } }));
+            setTimeout(() => window.location.reload(), 800);
+          } else {
+            window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: data.detail || 'Restore failed', type: 'error' } }));
+          }
+        } catch (e) {
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: e.message, type: 'error' } }));
+        }
+      },
+    };
+  }
+
+  // Folder manager is its own isolated component — that's fine because it
+  // only calls its own methods, never archivePage() methods.
+  function folderManager() {
+    return {
+      folders: [],
+      loading: true,
+      showCreate: false,
+      newName: '',
+      newColor: '#6366f1',
+
+      async load() {
+        this.loading = true;
+        try {
+          const res = await fetch('/api/folders');
+          this.folders = await res.json();
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      async createFolder() {
+        if (!this.newName.trim()) return;
+        const res = await fetch('/api/folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: this.newName.trim(), color: this.newColor }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: `Folder "${data.name}" created`, type: 'success' } }));
+          this.showCreate = false;
+          this.newName = '';
+          await this.load();
+        } else {
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: data.detail || 'Failed to create folder', type: 'error' } }));
+        }
+      },
+
+      async deleteFolder(folder) {
+        if (!confirm(`Delete folder "${folder.name}"?\n\nEvents inside will become uncategorised — they won't be deleted.`)) return;
+        const res = await fetch(`/api/folders/${folder.id}`, { method: 'DELETE' });
+        if (res.ok) {
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: `"${folder.name}" deleted`, type: 'success' } }));
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          const data = await res.json();
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: data.detail || 'Delete failed', type: 'error' } }));
+        }
+      },
+    };
+  }
+</script>
+{% endblock %}

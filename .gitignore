@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+*.egg-info/
+
+# Database
+*.db
+*.sqlite
+
+# Environment
+.env
+
+# Generated QR codes
+static/qr_codes/*.png
+
+# Docker data
+data/
+
+# OS
+.DS_Store
+*.log

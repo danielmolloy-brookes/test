@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}{{ org.name }} — OTTG Events{% endblock %}
+{% block nav_orgs %}active{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-2 text-sm text-slate-400 min-w-0 overflow-hidden">
+    <a href="/admin/organisations" class="hover:text-white flex-shrink-0">Organisations</a>
+    <i class="fas fa-chevron-right text-xs flex-shrink-0"></i>
+    <span class="text-white truncate min-w-0">{{ org.name }}</span>
+  </div>
+{% endblock %}
+
+{% block content %}
+<div x-data="orgDetail({{ org.id }})">
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-white">{{ org.name }}</h1>
+      <code class="text-xs text-slate-500 font-mono">{{ org.slug }}</code>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Create Org Admin -->
+    <div class="card space-y-4">
+      <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+        <i class="fas fa-user-shield text-indigo-400"></i> Add Organisation Admin
+      </h2>
+      <p class="text-xs text-slate-400">Creates a new admin user for this organisation.</p>
+
+      <div>
+        <label class="label">Username</label>
+        <input type="text" x-model="adminForm.username" class="input" placeholder="username" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label">Display Name</label>
+          <input type="text" x-model="adminForm.display_name" class="input" placeholder="Full name" />
+        </div>
+        <div>
+          <label class="label">Password</label>
+          <input type="password" x-model="adminForm.password" class="input" placeholder="Min 6 chars" />
+        </div>
+      </div>
+
+      <button @click="createAdmin()" :disabled="creatingAdmin || !adminForm.username || !adminForm.password"
+        class="w-full btn-primary justify-center"
+        :class="(creatingAdmin || !adminForm.username || !adminForm.password) && 'opacity-60'">
+        <i class="fas fa-user-plus" :class="creatingAdmin && 'fa-spin'"></i>
+        <span x-text="creatingAdmin ? 'Creating…' : 'Create Admin'"></span>
+      </button>
+
+      <div x-show="adminError" x-cloak class="p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-xs text-red-300" x-text="adminError"></div>
+      <div x-show="adminSuccess" x-cloak class="p-3 bg-emerald-900/30 border border-emerald-700/50 rounded-lg text-xs text-emerald-300" x-text="adminSuccess"></div>
+    </div>
+
+    <!-- Events summary -->
+    <div class="card">
+      <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-calendar-alt text-amber-400"></i> Events
+        <span class="text-slate-500 font-normal">({{ events | length }})</span>
+      </h2>
+      {% if events %}
+      <div class="space-y-2 max-h-64 overflow-y-auto">
+        {% for e in events %}
+        <a href="/events/{{ e.id }}" class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-700/50 transition-colors">
+          <div>
+            <p class="text-white text-xs font-medium">{{ e.name }}</p>
+            <p class="text-slate-500 text-xs">{{ e.date.strftime('%d %b %Y') }}</p>
+          </div>
+          {% if e.is_archived %}
+          <span class="badge-yellow text-xs">Archived</span>
+          {% else %}
+          <span class="badge-green text-xs">Live</span>
+          {% endif %}
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-slate-500 text-xs">No events yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- Admin users -->
+    <div class="card">
+      <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-crown text-indigo-400"></i> Admin Users
+        <span class="text-slate-500 font-normal" x-text="`(${admins.length})`"></span>
+      </h2>
+      <template x-if="admins.length === 0">
+        <p class="text-slate-500 text-xs">No admins yet. Create one above.</p>
+      </template>
+      <div class="space-y-2">
+        <template x-for="u in admins" :key="u.id">
+          <div class="flex items-center justify-between p-2 rounded-lg bg-slate-700/30">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                x-text="(u.display_name || u.username)[0].toUpperCase()"></div>
+              <div>
+                <p class="text-white text-xs font-medium" x-text="u.display_name || u.username"></p>
+                <p class="text-slate-500 text-xs" x-text="u.username"></p>
+              </div>
+            </div>
+            <span class="badge-blue text-xs"><i class="fas fa-crown mr-1"></i>Admin</span>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Check-in users -->
+    <div class="card">
+      <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+        <i class="fas fa-qrcode text-emerald-400"></i> Check-In Users
+        <span class="text-slate-500 font-normal">({{ checkin_users | length }})</span>
+      </h2>
+      {% if checkin_users %}
+      <div class="space-y-2">
+        {% for u in checkin_users %}
+        <div class="flex items-center gap-2 p-2 rounded-lg bg-slate-700/30">
+          <div class="w-7 h-7 bg-emerald-700 rounded-full flex items-center justify-center text-xs font-bold text-white">
+            {{ (u.display_name or u.username)[0].upper() }}
+          </div>
+          <div>
+            <p class="text-white text-xs font-medium">{{ u.display_name or u.username }}</p>
+            <p class="text-slate-500 text-xs">{{ u.username }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-slate-500 text-xs">No check-in users yet.</p>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function orgDetail(orgId) {
+  return {
+    orgId,
+    admins: {{ admins_json | tojson }},
+    adminForm: { username: '', password: '', display_name: '' },
+    creatingAdmin: false,
+    adminError: '',
+    adminSuccess: '',
+
+    async createAdmin() {
+      this.creatingAdmin = true;
+      this.adminError = '';
+      this.adminSuccess = '';
+      try {
+        const body = new FormData();
+        body.append('username', this.adminForm.username);
+        body.append('password', this.adminForm.password);
+        body.append('display_name', this.adminForm.display_name);
+        const res = await fetch(`/api/organisations/${orgId}/admins`, { method: 'POST', body });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed');
+        this.admins.push({ id: data.id, username: data.username, display_name: this.adminForm.display_name || this.adminForm.username });
+        this.adminSuccess = `✅ Admin '${data.username}' created for ${data.org}.`;
+        this.adminForm = { username: '', password: '', display_name: '' };
+      } catch (e) {
+        this.adminError = e.message;
+      } finally {
+        this.creatingAdmin = false;
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

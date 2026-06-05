@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% block title %}Report — {{ event.name }}{% endblock %}
+{% block nav_reports %}active{% endblock %}
+{% block nav_reports_admin %}active{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-2 text-sm text-slate-400 min-w-0 overflow-hidden">
+    <a href="/dashboard" class="hover:text-white flex-shrink-0">Dashboard</a>
+    <i class="fas fa-chevron-right text-xs flex-shrink-0"></i>
+    <a href="/events/{{ event.id }}" class="hover:text-white truncate min-w-0">{{ event.name }}</a>
+    <i class="fas fa-chevron-right text-xs flex-shrink-0"></i>
+    <span class="text-white flex-shrink-0">Report</span>
+  </div>
+{% endblock %}
+
+{% block header_actions %}
+  <a href="/api/events/{{ event.id }}/export-csv" class="btn-secondary text-xs">
+    <i class="fas fa-download"></i><span class="hidden sm:inline"> Export CSV</span>
+  </a>
+  <a href="/checkin/{{ event.id }}" class="btn-primary text-xs">
+    <i class="fas fa-qrcode"></i><span class="hidden sm:inline"> Scanner</span>
+  </a>
+{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="reportPage()" x-init="initCharts()">
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">Attendance Report</h1>
+    <p class="text-slate-400 text-sm mt-1">{{ event.name }} · {{ event.date.strftime('%A, %d %B %Y') }}</p>
+  </div>
+
+  <!-- Primary stats
+       Mobile:  2 cols — attendance rate spans full row, then 2×2 grid
+       sm+:     5 equal cols in one row, icon hidden to save width
+  -->
+  <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+
+    <!-- Attendance Rate -->
+    <div class="col-span-2 sm:col-span-1 bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4 flex items-center gap-3">
+      <!-- Icon only shown on mobile where card is full-width -->
+      <div class="sm:hidden w-10 h-10 bg-indigo-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-percentage text-indigo-400 text-lg"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-3xl sm:text-2xl font-bold truncate
+          {% if percentage >= 70 %}text-emerald-400{% elif percentage >= 40 %}text-amber-400{% else %}text-slate-300{% endif %}">
+          {{ percentage }}%
+        </p>
+        <p class="text-xs text-slate-400 truncate">
+          <span class="sm:hidden">Attendance Rate</span>
+          <span class="hidden sm:inline">Att. Rate</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Registered -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4">
+      <p class="text-2xl font-bold text-white">{{ total }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">Registered</p>
+    </div>
+
+    <!-- Checked In -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4">
+      <p class="text-2xl font-bold text-emerald-400">{{ checked_in }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">Checked In</p>
+    </div>
+
+    <!-- Badges Issued -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4">
+      <p class="text-2xl font-bold text-indigo-400">{{ badge_issued }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">
+        <span class="sm:hidden">Badges Issued</span>
+        <span class="hidden sm:inline">Badges</span>
+      </p>
+    </div>
+
+    <!-- Checked Out -->
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4">
+      <p class="text-2xl font-bold text-amber-400">{{ checked_out }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">
+        <span class="sm:hidden">Checked Out</span>
+        <span class="hidden sm:inline">Out</span>
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Time delta averages (only shown if there's data) -->
+  {% if avg_badge_mins is not none or avg_checkout_mins is not none %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+    {% if avg_badge_mins is not none %}
+    <div class="bg-indigo-900/20 border border-indigo-700/40 rounded-xl p-4 flex items-center gap-3">
+      <div class="w-9 h-9 bg-indigo-900/60 rounded-lg flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-stopwatch text-indigo-400"></i>
+      </div>
+      <div>
+        <p class="text-lg font-bold text-indigo-300">{{ avg_badge_fmt }}</p>
+        <p class="text-xs text-slate-400">Avg. Check-In → Badge Issued <span class="text-slate-600">({{ badge_issued }} issued)</span></p>
+      </div>
+    </div>
+    {% endif %}
+    {% if avg_checkout_mins is not none %}
+    <div class="bg-amber-900/20 border border-amber-700/40 rounded-xl p-4 flex items-center gap-3">
+      <div class="w-9 h-9 bg-amber-900/60 rounded-lg flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-stopwatch text-amber-400"></i>
+      </div>
+      <div>
+        <p class="text-lg font-bold text-amber-300">{{ avg_checkout_fmt }}</p>
+        <p class="text-xs text-slate-400">Avg. Check-In → Check-Out <span class="text-slate-600">({{ checked_out }} out)</span></p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+    <div class="card flex flex-col items-center justify-center">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4 self-start">Attendance Breakdown</h2>
+      <!-- Responsive donut: scales to available width, capped at 200px -->
+      <div class="w-full max-w-[200px] mx-auto" style="aspect-ratio:1/1">
+        <canvas id="donutChart"></canvas>
+      </div>
+      <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-4 text-xs text-slate-400">
+        <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1"></span>Attended ({{ checked_in }})</span>
+        <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-600 mr-1"></span>No-show ({{ not_checked_in }})</span>
+      </div>
+    </div>
+    <div class="card lg:col-span-2">
+      <h2 class="text-sm font-semibold text-slate-300 mb-4">Check-In Timeline</h2>
+      {% if hourly_labels %}
+      <div class="w-full" style="height:clamp(150px,30vw,200px)">
+        <canvas id="hourlyChart"></canvas>
+      </div>
+      {% else %}
+      <div class="flex items-center justify-center h-36 sm:h-48 text-slate-600 text-sm">
+        <i class="fas fa-chart-bar text-3xl mr-2"></i> No check-in data yet
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Attendee table -->
+  <div class="card">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 sm:gap-3">
+      <h2 class="text-sm font-semibold text-white flex-shrink-0">Attendee Detail</h2>
+      <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+        <!-- Filter pills — horizontally scrollable on mobile -->
+        <div class="flex gap-1 bg-slate-700/50 rounded-lg p-0.5 text-xs overflow-x-auto">
+          <button @click="filter='all'"
+            :class="filter === 'all' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'"
+            class="flex-shrink-0 px-2.5 py-1 rounded-md transition-colors whitespace-nowrap">All ({{ total }})</button>
+          <button @click="filter='checked_in'"
+            :class="filter === 'checked_in' ? 'bg-emerald-700 text-white' : 'text-slate-400 hover:text-white'"
+            class="flex-shrink-0 px-2.5 py-1 rounded-md transition-colors whitespace-nowrap">
+            <i class="fas fa-check text-xs mr-1"></i>In ({{ checked_in }})</button>
+          <button @click="filter='badge_issued'"
+            :class="filter === 'badge_issued' ? 'bg-indigo-700 text-white' : 'text-slate-400 hover:text-white'"
+            class="flex-shrink-0 px-2.5 py-1 rounded-md transition-colors whitespace-nowrap">
+            <i class="fas fa-id-badge text-xs mr-1"></i>Badge ({{ badge_issued }})</button>
+          <button @click="filter='checked_out'"
+            :class="filter === 'checked_out' ? 'bg-amber-700 text-white' : 'text-slate-400 hover:text-white'"
+            class="flex-shrink-0 px-2.5 py-1 rounded-md transition-colors whitespace-nowrap">
+            <i class="fas fa-sign-out-alt text-xs mr-1"></i>Out ({{ checked_out }})</button>
+          <button @click="filter='not_checked_in'"
+            :class="filter === 'not_checked_in' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'"
+            class="flex-shrink-0 px-2.5 py-1 rounded-md transition-colors whitespace-nowrap">No-show ({{ not_checked_in }})</button>
+        </div>
+        <!-- Search -->
+        <input type="text" x-model="search" placeholder="Search…"
+          class="input text-xs py-1.5 px-3 w-full sm:w-40" />
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs" style="min-width: 860px;">
+        <thead>
+          <tr class="text-xs text-slate-500 uppercase tracking-wider border-b border-slate-700">
+            <th class="text-left py-2 pr-3 w-6">#</th>
+            <th class="text-left py-2 pr-4">Attendee</th>
+            <th class="text-left py-2 pr-3">Email</th>
+            <th class="text-left py-2 pr-3">Status</th>
+            <th class="text-left py-2 pr-3">
+              <span class="flex items-center gap-1"><i class="fas fa-sign-in-alt text-emerald-500"></i> Check-In</span>
+            </th>
+            <th class="text-left py-2 pr-3">
+              <span class="flex items-center gap-1"><i class="fas fa-id-badge text-indigo-400"></i> Badge</span>
+            </th>
+            <th class="text-left py-2 pr-3">
+              <span class="flex items-center gap-1 text-indigo-500"><i class="fas fa-stopwatch"></i> →Badge</span>
+            </th>
+            <th class="text-left py-2 pr-3">
+              <span class="flex items-center gap-1"><i class="fas fa-sign-out-alt text-amber-400"></i> Check-Out</span>
+            </th>
+            <th class="text-left py-2 pr-3">
+              <span class="flex items-center gap-1 text-amber-500"><i class="fas fa-stopwatch"></i> →Out</span>
+            </th>
+            <th class="text-left py-2">GHL</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/40">
+          {% for a in attendees %}
+          <tr class="hover:bg-slate-700/20 transition-colors report-row"
+            data-checked="{{ 'true' if a.checked_in else 'false' }}"
+            data-badge="{{ 'true' if a.badge_issued else 'false' }}"
+            data-checkout="{{ 'true' if a.checked_out else 'false' }}"
+            data-name="{{ (a.first_name + ' ' + a.last_name) | lower }}"
+            data-email="{{ a.email | lower }}"
+            data-company="{{ a.company | lower }}">
+
+            <!-- Row number -->
+            <td class="py-2.5 pr-3 text-slate-600">{{ loop.index }}</td>
+
+            <!-- Attendee -->
+            <td class="py-2.5 pr-4">
+              <div class="flex items-center gap-1.5">
+                <p class="text-white font-medium whitespace-nowrap">{{ a.full_name }}</p>
+                {% if a.is_vip %}<span class="text-yellow-400 text-xs"><i class="fas fa-crown"></i></span>{% endif %}
+              </div>
+              {% if a.company %}<p class="text-slate-500 text-xs mt-0.5">{{ a.company }}</p>{% endif %}
+            </td>
+
+            <!-- Email -->
+            <td class="py-2.5 pr-3 text-slate-400">{{ a.email or "—" }}</td>
+
+            <!-- Status -->
+            <td class="py-2.5 pr-3">
+              {% if a.checked_out %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-300 border border-amber-700/40 whitespace-nowrap">
+                  <i class="fas fa-sign-out-alt"></i> Out
+                </span>
+              {% elif a.badge_issued %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-900/40 text-indigo-300 border border-indigo-700/40 whitespace-nowrap">
+                  <i class="fas fa-id-badge"></i> Badged
+                </span>
+              {% elif a.checked_in %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/40 whitespace-nowrap">
+                  <i class="fas fa-check"></i> In
+                </span>
+              {% else %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 border border-slate-600 whitespace-nowrap">
+                  <i class="fas fa-clock"></i> No-show
+                </span>
+              {% endif %}
+            </td>
+
+            <!-- Check-In time -->
+            <td class="py-2.5 pr-3 text-emerald-400 font-mono whitespace-nowrap">
+              {{ a.checked_in_fmt if a.checked_in else "—" }}
+            </td>
+
+            <!-- Badge time -->
+            <td class="py-2.5 pr-3 text-indigo-400 font-mono whitespace-nowrap">
+              {{ a.badge_issued_fmt if a.badge_issued else "—" }}
+            </td>
+
+            <!-- Check-in → Badge delta -->
+            <td class="py-2.5 pr-3 whitespace-nowrap">
+              {% if a.checkin_to_badge_fmt != "—" %}
+              <span class="text-indigo-500 font-medium">{{ a.checkin_to_badge_fmt }}</span>
+              {% else %}
+              <span class="text-slate-700">—</span>
+              {% endif %}
+            </td>
+
+            <!-- Check-Out time -->
+            <td class="py-2.5 pr-3 text-amber-400 font-mono whitespace-nowrap">
+              {{ a.checked_out_fmt if a.checked_out else "—" }}
+            </td>
+
+            <!-- Check-in → Out delta -->
+            <td class="py-2.5 pr-3 whitespace-nowrap">
+              {% if a.checkin_to_checkout_fmt != "—" %}
+              <span class="text-amber-500 font-medium">{{ a.checkin_to_checkout_fmt }}</span>
+              {% else %}
+              <span class="text-slate-700">—</span>
+              {% endif %}
+            </td>
+
+            <!-- GHL -->
+            <td class="py-2.5">
+              {% if a.ghl_contact_id %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-900/30 text-indigo-400 border border-indigo-800/50 font-mono whitespace-nowrap">
+                <i class="fas fa-link text-xs"></i>{{ a.ghl_contact_id[:8] }}…
+              </span>
+              {% else %}
+              <span class="text-slate-600">—</span>
+              {% endif %}
+            </td>
+
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty state after filter -->
+    <div id="table-empty" class="hidden text-center py-10 text-slate-600 text-sm">
+      <i class="fas fa-search text-2xl mb-2 block"></i>
+      No attendees match this filter
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const hourlyLabels = {{ hourly_labels | tojson }};
+const hourlyCounts = {{ hourly_counts | tojson }};
+
+function reportPage() {
+  return {
+    filter: 'all',
+    search: '',
+
+    initCharts() {
+      // Donut chart — responsive: CSS controls size via aspect-ratio container
+      const donutCtx = document.getElementById('donutChart');
+      if (donutCtx) {
+        new Chart(donutCtx, {
+          type: 'doughnut',
+          data: {
+            datasets: [{
+              data: [{{ checked_in }}, {{ not_checked_in }}],
+              backgroundColor: ['#10b981', '#334155'],
+              borderWidth: 0,
+              hoverOffset: 4,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: { legend: { display: false } },
+            animation: { animateRotate: true },
+          },
+        });
+      }
+
+      // Hourly bar chart
+      const hourlyCtx = document.getElementById('hourlyChart');
+      if (hourlyCtx && hourlyLabels.length > 0) {
+        new Chart(hourlyCtx, {
+          type: 'bar',
+          data: {
+            labels: hourlyLabels,
+            datasets: [{
+              label: 'Check-ins',
+              data: hourlyCounts,
+              backgroundColor: '#6366f1',
+              borderRadius: 4,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { ticks: { color: '#64748b', precision: 0 }, grid: { color: '#1e293b' } },
+              x: { ticks: { color: '#64748b' }, grid: { display: false } },
+            },
+          },
+        });
+      }
+
+      this.$watch('filter', () => this.applyFilter());
+      this.$watch('search', () => this.applyFilter());
+    },
+
+    applyFilter() {
+      const rows = document.querySelectorAll('.report-row');
+      const q = this.search.toLowerCase().trim();
+      let visible = 0;
+
+      rows.forEach(row => {
+        const isCheckedIn  = row.dataset.checked  === 'true';
+        const isBadged     = row.dataset.badge    === 'true';
+        const isCheckedOut = row.dataset.checkout === 'true';
+        const name    = row.dataset.name    || '';
+        const email   = row.dataset.email   || '';
+        const company = row.dataset.company || '';
+
+        const matchFilter =
+          this.filter === 'all'           ||
+          (this.filter === 'checked_in'    && isCheckedIn && !isCheckedOut) ||
+          (this.filter === 'badge_issued'  && isBadged) ||
+          (this.filter === 'checked_out'   && isCheckedOut) ||
+          (this.filter === 'not_checked_in' && !isCheckedIn);
+
+        const matchSearch = !q || name.includes(q) || email.includes(q) || company.includes(q);
+
+        const show = matchFilter && matchSearch;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+
+      const emptyEl = document.getElementById('table-empty');
+      if (emptyEl) emptyEl.classList.toggle('hidden', visible > 0);
+    },
+  };
+}
+</script>
+{% endblock %}

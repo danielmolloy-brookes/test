@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login — OTTG Events</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-sm">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <img src="/static/images/ottg-events-logo.png"
+           alt="OTTG Events"
+           class="h-20 w-auto object-contain mx-auto mb-4"
+           style="filter: brightness(0) invert(1);" />
+      <p class="text-slate-400 text-sm">Event Management System</p>
+    </div>
+
+    <!-- Login card -->
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-2xl">
+      <h2 class="text-lg font-semibold text-white mb-6">Sign in to your account</h2>
+
+      {% if error %}
+      <div class="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg flex items-center gap-2 text-sm text-red-300">
+        <i class="fas fa-exclamation-circle"></i>
+        {{ error }}
+      </div>
+      {% endif %}
+
+      <form method="POST" action="/login">
+        <div class="space-y-4">
+          <div>
+            <label for="username" class="block text-sm font-medium text-slate-300 mb-1">Username</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-3 flex items-center text-slate-500">
+                <i class="fas fa-user text-sm"></i>
+              </span>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                required
+                autofocus
+                placeholder="admin"
+                class="w-full pl-9 pr-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-medium text-slate-300 mb-1">Password</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-3 flex items-center text-slate-500">
+                <i class="fas fa-lock text-sm"></i>
+              </span>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                placeholder="••••••••"
+                class="w-full pl-9 pr-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="mt-6 w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+        >
+          <i class="fas fa-sign-in-alt"></i>
+          Sign In
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center text-xs text-slate-600 mt-6">
+      OTTG Events • GoHighLevel Integration
+    </p>
+  </div>
+</body>
+</html>

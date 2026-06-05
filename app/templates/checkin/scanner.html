@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+{% block title %}Check-In — {{ event.name }}{% endblock %}
+{% block nav_checkin %}active{% endblock %}
+{% block nav_checkin_admin %}active{% endblock %}
+{% block nav_checkin_staff %}active{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-3">
+    <a href="/events/{{ event.id }}" class="text-slate-400 hover:text-white transition-colors">
+      <i class="fas fa-arrow-left text-sm"></i>
+    </a>
+    <div>
+      <h1 class="text-base font-semibold text-white leading-tight">{{ event.name }}</h1>
+      <p class="text-xs text-slate-400">{{ event.date.strftime('%d %b %Y, %H:%M') if event.date else '' }}{% if event.location %} · {{ event.location }}{% endif %}</p>
+    </div>
+  </div>
+{% endblock %}
+
+{% block header_actions %}
+  <a href="/reports/{{ event.id }}" class="btn-secondary text-xs">
+    <i class="fas fa-chart-bar"></i><span class="hidden sm:inline"> Report</span>
+  </a>
+{% endblock %}
+
+{% block head %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div x-data="checkinApp({{ event.id }}, {{ total }}, {{ checked_in }})" x-init="init()" class="max-w-6xl mx-auto">
+
+  <!-- Live stats bar -->
+  <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4 text-center">
+      <p class="text-2xl sm:text-3xl font-bold text-white" x-text="stats.total">{{ total }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">Total</p>
+    </div>
+    <div class="bg-emerald-900/30 border border-emerald-700/50 rounded-xl p-3 sm:p-4 text-center">
+      <p class="text-2xl sm:text-3xl font-bold text-emerald-400" x-text="stats.checked_in">{{ checked_in }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">Checked In</p>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4 text-center">
+      <p class="text-2xl sm:text-3xl font-bold text-slate-300" x-text="stats.total - stats.checked_in">{{ total - checked_in }}</p>
+      <p class="text-xs text-slate-400 mt-0.5">Remaining</p>
+    </div>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="mb-5">
+    <div class="flex justify-between text-xs text-slate-500 mb-1.5">
+      <span>Check-in progress</span>
+      <span class="flex items-center gap-2">
+        <span x-text="`${stats.checked_in}/${stats.total} (${percentage}%)`"></span>
+        <span class="hidden sm:flex text-slate-600 items-center gap-1">
+          <i class="fas fa-sync" :class="refreshing && 'fa-spin'"></i>
+          <span x-text="lastRefreshed ? `Updated ${lastRefreshed}` : 'Auto-refreshing…'"></span>
+        </span>
+      </span>
+    </div>
+    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+      <div class="h-full rounded-full bg-emerald-500 transition-all duration-700" :style="`width: ${percentage}%`"></div>
+    </div>
+  </div>
+
+  <!-- Main layout -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+    <!-- ── QR Scanner card ── -->
+    <div class="card">
+
+      <!-- Header row: title + start/stop button -->
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+          <i class="fas fa-qrcode text-indigo-400"></i> QR Scanner
+        </h2>
+        <button @click="toggleScanner()"
+          :class="scannerActive
+            ? 'bg-red-600 hover:bg-red-700 text-white'
+            : 'bg-indigo-600 hover:bg-indigo-700 text-white'"
+          class="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5">
+          <i :class="scannerActive ? 'fas fa-stop' : 'fas fa-camera'"></i>
+          <span x-text="scannerActive ? 'Stop' : 'Start Camera'"></span>
+        </button>
+      </div>
+
+      <!-- ── Camera selector — always visible once cameras are found ── -->
+      <div x-show="cameras.length > 0" x-cloak class="mb-3">
+        <label class="block text-xs text-slate-400 mb-1.5">
+          <i class="fas fa-video mr-1"></i> Camera
+          <span x-show="camerasLoading" class="text-slate-600 ml-1">(detecting…)</span>
+        </label>
+        <select
+          x-model="selectedCamera"
+          @change="onCameraChange()"
+          class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm
+                 focus:outline-none focus:border-indigo-500 cursor-pointer"
+        >
+          <template x-for="cam in cameras" :key="cam.id">
+            <option :value="cam.id" x-text="cam.label || `Camera ${cam.id.substring(0,6)}`"></option>
+          </template>
+        </select>
+
+        <!-- Show current camera type badge -->
+        <p class="text-xs text-slate-500 mt-1" x-text="cameraHint"></p>
+      </div>
+
+      <!-- No cameras found warning -->
+      <div x-show="cameraError" x-cloak
+        class="mb-3 p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-xs text-red-300 flex items-start gap-2">
+        <i class="fas fa-exclamation-triangle mt-0.5 flex-shrink-0"></i>
+        <span x-text="cameraError"></span>
+      </div>
+
+      <!-- Camera viewport -->
+      <div class="relative bg-slate-900 rounded-xl overflow-hidden" style="min-height:260px;">
+        <div id="qr-reader" class="w-full"></div>
+
+        <!-- Placeholder when camera is off -->
+        <div x-show="!scannerActive"
+          class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 pointer-events-none">
+          <i class="fas fa-camera text-slate-700 text-5xl mb-3"></i>
+          <p class="text-slate-400 text-sm font-medium">Camera is off</p>
+          <p class="text-slate-600 text-xs mt-1">
+            <span x-show="cameras.length === 0">Press "Start Camera" to detect cameras</span>
+            <span x-show="cameras.length > 0" x-text="`${cameras.length} camera(s) found — press Start Camera`"></span>
+          </p>
+        </div>
+
+        <!-- Scanning live indicator -->
+        <div x-show="scannerActive" x-cloak class="absolute bottom-3 right-3 pointer-events-none">
+          <div class="flex items-center gap-1.5 bg-black/70 rounded-full px-2.5 py-1 text-xs text-emerald-400">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Scanning…
+          </div>
+        </div>
+
+        <!-- Switching camera overlay -->
+        <div x-show="switching" x-cloak
+          class="absolute inset-0 bg-slate-900/80 flex items-center justify-center rounded-xl">
+          <div class="text-center text-slate-300">
+            <i class="fas fa-sync fa-spin text-2xl mb-2 block"></i>
+            <p class="text-xs">Switching camera…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIP scan result — full-width gold banner -->
+      <div x-show="lastResult?.status === 'checked_in' && lastResult?.is_vip" x-cloak
+        class="mt-3 p-4 rounded-xl border-2 border-yellow-400 bg-yellow-900/40 text-yellow-100"
+        x-transition>
+        <div class="flex items-center gap-3">
+          <i class="fas fa-crown text-yellow-400 text-2xl flex-shrink-0"></i>
+          <div class="flex-1">
+            <p class="font-bold text-base text-yellow-300">⭐ VIP GUEST</p>
+            <p class="text-sm font-medium" x-text="lastResult?.attendee ? fullName(lastResult.attendee) : ''"></p>
+            <template x-if="lastResult?.attendee?.notes">
+              <p class="text-xs text-yellow-200/70 mt-0.5" x-text="lastResult.attendee.notes"></p>
+            </template>
+          </div>
+          <i class="fas fa-star text-yellow-400 text-xl flex-shrink-0"></i>
+        </div>
+      </div>
+
+      <!-- Standard scan result -->
+      <div x-show="lastResult && !(lastResult?.status === 'checked_in' && lastResult?.is_vip)" x-cloak
+        :class="{
+          'bg-emerald-900/50 border-emerald-600 text-emerald-100': lastResult?.status === 'checked_in',
+          'bg-amber-900/50 border-amber-600 text-amber-100':       lastResult?.status === 'duplicate',
+          'bg-red-900/50   border-red-600   text-red-100':         lastResult?.status === 'not_found' || lastResult?.status === 'wrong_event'
+        }"
+        class="mt-3 p-4 rounded-xl border"
+        x-transition
+      >
+        <div class="flex items-start gap-3">
+          <i :class="{
+            'fas fa-check-circle   text-emerald-400 text-xl': lastResult?.status === 'checked_in',
+            'fas fa-exclamation-triangle text-amber-400 text-xl': lastResult?.status === 'duplicate',
+            'fas fa-times-circle   text-red-400    text-xl': lastResult?.status === 'not_found' || lastResult?.status === 'wrong_event'
+          }"></i>
+          <div>
+            <p class="font-semibold text-sm" x-text="lastResult?.message"></p>
+            <template x-if="lastResult?.attendee">
+              <p class="text-xs opacity-75 mt-0.5"
+                x-text="`${lastResult.attendee.email || ''} · ${lastResult.attendee.ticket_id?.substring(0,8).toUpperCase() || ''}`">
+              </p>
+            </template>
+            <template x-if="lastResult?.attendee?.notes">
+              <p class="text-xs opacity-75 mt-0.5 italic" x-text="lastResult.attendee.notes"></p>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Right column ── -->
+    <div class="space-y-4">
+
+      <!-- Manual search -->
+      <div class="card">
+        <h2 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+          <i class="fas fa-search text-indigo-400"></i> Manual Search
+        </h2>
+        <div class="flex gap-2">
+          <input
+            type="text"
+            x-model="searchQuery"
+            @input.debounce.300ms="searchAttendees()"
+            @keydown.enter="searchAttendees()"
+            placeholder="Name, email or ticket ID…"
+            class="input flex-1 text-sm"
+          />
+          <button @click="searchAttendees()" class="btn-secondary px-3">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+
+        <div x-show="searchResults.length > 0" x-cloak class="mt-3 space-y-2 max-h-60 overflow-y-auto">
+          <template x-for="a in searchResults" :key="a.id">
+            <div :class="a.is_vip ? 'bg-yellow-900/20 border border-yellow-700/40' : 'bg-slate-700/50'"
+              class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700 transition-colors">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <p class="text-sm text-white font-medium" x-text="fullName(a)"></p>
+                  <span x-show="a.is_vip" class="text-yellow-400 text-xs"><i class="fas fa-crown"></i></span>
+                </div>
+                <p class="text-xs text-slate-400 truncate" x-text="a.email || ''"></p>
+                <p x-show="a.notes" class="text-xs text-slate-500 italic truncate" x-text="a.notes"></p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span x-show="a.checked_in" class="badge-green text-xs"><i class="fas fa-check"></i></span>
+                <button @click="manualCheckin(a)" :disabled="a.checked_in"
+                  :class="a.checked_in ? 'opacity-40 cursor-not-allowed' : a.is_vip ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : ''"
+                  class="btn-primary text-xs py-1 px-2.5">
+                  <i class="fas fa-check mr-1"></i>
+                  <span x-text="a.checked_in ? 'Done' : 'Check In'"></span>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="searchQuery.length > 1 && searchResults.length === 0 && !searching" x-cloak
+          class="mt-3 text-center text-sm text-slate-500 py-3">
+          No attendees found
+        </div>
+      </div>
+
+      <!-- Recent check-ins -->
+      <div class="card">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i class="fas fa-list-check text-indigo-400"></i> Recent Check-Ins
+          </h2>
+          <span class="text-xs text-slate-500" x-text="`${recentCheckins.length} shown`"></span>
+        </div>
+
+        <div x-show="recentCheckins.length === 0" x-cloak class="text-center py-6 text-slate-600 text-sm">
+          <i class="fas fa-inbox text-2xl mb-2 block"></i>
+          No check-ins yet
+        </div>
+
+        <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+          <template x-for="(a, i) in recentCheckins" :key="a.id">
+            <div :class="a.is_vip ? 'bg-yellow-900/20 border-yellow-700/40' : i === 0 ? 'bg-emerald-900/20 border-emerald-700/40' : 'bg-slate-700/30 border-slate-700/30'"
+              class="flex items-center gap-3 p-2.5 rounded-lg border transition-all" x-transition>
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 relative"
+                :class="a.is_vip ? 'bg-yellow-700 text-yellow-100' : i === 0 ? 'bg-emerald-700 text-emerald-100' : 'bg-slate-600 text-slate-300'"
+                x-text="(a.full_name || '?').charAt(0).toUpperCase()">
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <p class="text-xs text-white font-medium truncate" x-text="a.full_name || 'Unknown'"></p>
+                  <span x-show="a.is_vip" class="text-yellow-400 text-xs flex-shrink-0"><i class="fas fa-crown"></i></span>
+                </div>
+                <p class="text-xs text-slate-500 truncate" x-text="a.email || ''"></p>
+              </div>
+              <p class="text-xs text-slate-500 flex-shrink-0" x-text="formatTime(a.checked_in_at)"></p>
+            </div>
+          </template>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function checkinApp(eventId, total, checkedIn) {
+  return {
+    stats: { total, checked_in: checkedIn },
+
+    // Scanner state
+    scanner:       null,
+    scannerActive: false,
+    switching:     false,
+
+    // Camera state
+    cameras:        [],
+    selectedCamera: null,
+    camerasLoading: false,
+    cameraError:    null,
+
+    // UI state
+    lastResult:      null,
+    lastResultTimer: null,
+    searchQuery:     '',
+    searchResults:   [],
+    searching:       false,
+    recentCheckins:  [],
+    pollTimer:       null,
+    refreshing:      false,
+    lastRefreshed:   null,
+
+    // ── Computed ──────────────────────────────────────────────
+    get percentage() {
+      if (!this.stats.total) return 0;
+      return Math.round(this.stats.checked_in / this.stats.total * 100);
+    },
+
+    get cameraHint() {
+      if (!this.selectedCamera || !this.cameras.length) return '';
+      const cam = this.cameras.find(c => c.id === this.selectedCamera);
+      if (!cam) return '';
+      const lbl = (cam.label || '').toLowerCase();
+      if (lbl.includes('back') || lbl.includes('rear') || lbl.includes('environment'))
+        return '📷 Back / rear camera selected';
+      if (lbl.includes('front') || lbl.includes('face') || lbl.includes('user') || lbl.includes('selfie'))
+        return '🤳 Front / selfie camera selected';
+      return '🖥️ ' + (cam.label || 'Camera selected');
+    },
+
+    // ── Lifecycle ─────────────────────────────────────────────
+    async init() {
+      await this.loadRecentCheckins();
+      await this.detectCameras();
+      this.connectSSE();
+      // Polling kept as a 30s fallback in case SSE drops
+      this.pollTimer = setInterval(async () => {
+        await Promise.all([this.refreshStats(), this.loadRecentCheckins()]);
+      }, 30000);
+    },
+
+    // ── Server-Sent Events ────────────────────────────────────
+    connectSSE() {
+      if (this._es) this._es.close();
+      this._es = new EventSource(`/api/events/${eventId}/live`);
+      this._es.onopen  = () => { this.connected = true; };
+      this._es.onerror = () => { this.connected = false; };
+      this._es.onmessage = (e) => {
+        try { this.handleLiveEvent(JSON.parse(e.data)); } catch (_) {}
+      };
+    },
+
+    handleLiveEvent(data) {
+      // Always sync stats when the server sends them
+      if (data.stats) {
+        this.stats.total      = data.stats.total;
+        this.stats.checked_in = data.stats.checked_in;
+      }
+      // Successful check-in: prepend to recent list
+      if (data.type === 'activity' && data.entry?.result === 'success') {
+        const e = data.entry;
+        this.recentCheckins = [
+          { id: e.attendee_id, full_name: e.full_name, email: e.email,
+            company: e.company, is_vip: e.is_vip, checked_in_at: e.scanned_at },
+          ...this.recentCheckins.filter(r => r.id !== e.attendee_id).slice(0, 19),
+        ];
+        this.lastRefreshed = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    },
+
+    // ── Camera enumeration ────────────────────────────────────
+    async detectCameras() {
+      this.camerasLoading = true;
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        this.cameras = devices;
+
+        if (devices.length > 0 && !this.selectedCamera) {
+          // Default: prefer back/rear camera on mobile; else first camera
+          const back = devices.find(d => {
+            const l = (d.label || '').toLowerCase();
+            return l.includes('back') || l.includes('rear') || l.includes('environment');
+          });
+          this.selectedCamera = back ? back.id : devices[0].id;
+        }
+      } catch (e) {
+        // Some browsers need permission before listing cameras — that's fine,
+        // we'll enumerate again after startScanner grants permission.
+        console.log('Camera pre-enumerate:', e.message);
+      } finally {
+        this.camerasLoading = false;
+      }
+    },
+
+    // ── Start / stop ──────────────────────────────────────────
+    async toggleScanner() {
+      if (this.scannerActive) {
+        await this.stopScanner();
+      } else {
+        await this.startScanner();
+      }
+    },
+
+    async startScanner() {
+      this.cameraError = null;
+
+      // Clean up any leftover DOM content from a previous run
+      const el = document.getElementById('qr-reader');
+      if (el) el.innerHTML = '';
+
+      const qr = new Html5Qrcode('qr-reader');
+      this.scanner = qr;
+
+      // Re-enumerate cameras now that we have (or are getting) permission
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices.length > 0) {
+          this.cameras = devices;
+          // Keep previously selected camera if it still exists
+          const stillExists = devices.find(d => d.id === this.selectedCamera);
+          if (!stillExists) {
+            const back = devices.find(d => {
+              const l = (d.label || '').toLowerCase();
+              return l.includes('back') || l.includes('rear') || l.includes('environment');
+            });
+            this.selectedCamera = back ? back.id : devices[0].id;
+          }
+        }
+      } catch (e) {
+        console.warn('Camera enumerate after start:', e.message);
+      }
+
+      // Build camera constraint — use ID if we have one, else fall back to facing mode
+      const cameraConstraint = this.selectedCamera
+        ? this.selectedCamera
+        : { facingMode: 'environment' };
+
+      const config = {
+        fps: 15,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          // Responsive scan box — 70% of the smaller dimension, max 300px
+          const size = Math.min(viewfinderWidth, viewfinderHeight, 300) * 0.7;
+          return { width: Math.round(size), height: Math.round(size) };
+        },
+        aspectRatio: 1.0,
+        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
+        showTorchButtonIfSupported: true,
+      };
+
+      try {
+        await qr.start(
+          cameraConstraint,
+          config,
+          (decoded) => this.onScan(decoded),
+          (_err)    => {} // per-frame decode errors are noise — ignore
+        );
+        this.scannerActive = true;
+      } catch (e) {
+        this.scanner = null;
+        console.error('Scanner start error:', e);
+
+        // Friendly error messages
+        let msg = 'Could not start camera.';
+        if (e.message?.includes('permission') || e.message?.includes('Permission') || e.name === 'NotAllowedError') {
+          msg = 'Camera permission denied. Please allow camera access in your browser settings and try again.';
+        } else if (e.name === 'NotFoundError' || e.message?.includes('not found')) {
+          msg = 'No camera found on this device.';
+        } else if (e.name === 'NotReadableError') {
+          msg = 'Camera is in use by another app. Close it and try again.';
+        } else if (e.message) {
+          msg = e.message;
+        }
+        this.cameraError = msg;
+      }
+    },
+
+    async stopScanner() {
+      if (this.scanner) {
+        try {
+          if (this.scannerActive) await this.scanner.stop();
+          this.scanner.clear();
+        } catch (e) {
+          console.warn('Stop scanner:', e.message);
+        }
+        this.scanner = null;
+      }
+      this.scannerActive = false;
+    },
+
+    // ── Camera switching ──────────────────────────────────────
+    // Called when the <select> value changes
+    async onCameraChange() {
+      if (!this.scannerActive) return; // Not running — selection will be used on next Start
+      this.switching = true;
+      await this.stopScanner();
+      // Small pause to let the browser release the camera track
+      await new Promise(r => setTimeout(r, 400));
+      await this.startScanner();
+      this.switching = false;
+    },
+
+    // ── QR scan handler ───────────────────────────────────────
+    async onScan(ticketId) {
+      // Debounce — ignore repeated scans of same ticket within 2s
+      if (this._lastScannedId === ticketId) return;
+      this._lastScannedId = ticketId;
+      setTimeout(() => { this._lastScannedId = null; }, 2000);
+
+      if (navigator.vibrate) navigator.vibrate(50);
+
+      try {
+        const res = await fetch('/api/checkin/scan', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ ticket_id: ticketId, event_id: eventId }),
+        });
+        const data = await res.json();
+        this.showResult(data);
+
+        if (data.success) {
+          this.stats.checked_in++;
+          await this.loadRecentCheckins();
+          if (data.is_vip) {
+            this.playVIP();
+            if (navigator.vibrate) navigator.vibrate([50, 100, 50, 100, 200]);
+          } else {
+            this.playSuccess();
+            if (navigator.vibrate) navigator.vibrate([50, 50, 100]);
+          }
+        } else if (data.status === 'duplicate') {
+          this.playDuplicate();
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
+        } else {
+          this.playError();
+          if (navigator.vibrate) navigator.vibrate([200]);
+        }
+      } catch (e) {
+        this.showResult({ success: false, status: 'not_found', message: `Network error: ${e.message}` });
+        this.playError();
+      }
+    },
+
+    // ── Helpers ───────────────────────────────────────────────
+    showResult(result) {
+      this.lastResult = result;
+      if (this.lastResultTimer) clearTimeout(this.lastResultTimer);
+      this.lastResultTimer = setTimeout(() => { this.lastResult = null; }, 5000);
+    },
+
+    fullName(a) {
+      return [a.first_name, a.last_name].filter(Boolean).join(' ') || a.email || 'Unknown';
+    },
+
+    formatTime(iso) {
+      if (!iso) return '';
+      return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    },
+
+    // ── Manual check-in ───────────────────────────────────────
+    async searchAttendees() {
+      if (this.searchQuery.length < 2) { this.searchResults = []; return; }
+      this.searching = true;
+      try {
+        const res = await fetch(`/api/events/${eventId}/attendees?search=${encodeURIComponent(this.searchQuery)}&limit=10`);
+        this.searchResults = await res.json();
+      } finally {
+        this.searching = false;
+      }
+    },
+
+    async manualCheckin(attendee) {
+      if (attendee.checked_in) return;
+      try {
+        const res = await fetch('/api/checkin/manual', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ attendee_id: attendee.id }),
+        });
+        const data = await res.json();
+        this.showResult(data);
+        if (data.success) {
+          attendee.checked_in = true;
+          this.stats.checked_in++;
+          await this.loadRecentCheckins();
+          const found = this.searchResults.find(a => a.id === attendee.id);
+          if (found) found.checked_in = true;
+          data.is_vip ? this.playVIP() : this.playSuccess();
+        }
+      } catch (e) {
+        this.showResult({ success: false, status: 'not_found', message: e.message });
+      }
+    },
+
+    // ── Polling ───────────────────────────────────────────────
+    async loadRecentCheckins() {
+      try {
+        const res = await fetch(`/api/events/${eventId}/checkin/recent?limit=20`);
+        this.recentCheckins = await res.json();
+      } catch (e) {}
+    },
+
+    async refreshStats() {
+      this.refreshing = true;
+      try {
+        const res  = await fetch(`/api/events/${eventId}/stats`);
+        const data = await res.json();
+        this.stats.total      = data.total_attendees;
+        this.stats.checked_in = data.checked_in_count;
+        this.lastRefreshed = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } catch (e) {} finally {
+        this.refreshing = false;
+      }
+    },
+
+    // ── Sounds (Web Audio API — no external files) ────────────
+    _audioCtx() {
+      return new (window.AudioContext || window.webkitAudioContext)();
+    },
+
+    _beep(ctx, freq, start, duration, type = 'sine', vol = 0.3) {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(vol, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + duration + 0.05);
+    },
+
+    playSuccess() {
+      try {
+        const ctx = this._audioCtx();
+        this._beep(ctx, 523, 0,    0.12);   // C5
+        this._beep(ctx, 784, 0.13, 0.18);   // G5
+      } catch (e) {}
+    },
+
+    playVIP() {
+      try {
+        const ctx = this._audioCtx();
+        this._beep(ctx, 523,  0,    0.1);   // C5
+        this._beep(ctx, 659,  0.11, 0.1);   // E5
+        this._beep(ctx, 784,  0.22, 0.1);   // G5
+        this._beep(ctx, 1047, 0.33, 0.25);  // C6
+      } catch (e) {}
+    },
+
+    playDuplicate() {
+      try {
+        const ctx = this._audioCtx();
+        this._beep(ctx, 330, 0,    0.1, 'sine', 0.25);
+        this._beep(ctx, 330, 0.15, 0.1, 'sine', 0.25);
+      } catch (e) {}
+    },
+
+    playError() {
+      try {
+        const ctx = this._audioCtx();
+        this._beep(ctx, 200, 0, 0.3, 'square', 0.2);
+      } catch (e) {}
+    },
+  };
+}
+</script>
+{% endblock %}

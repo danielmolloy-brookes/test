@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}OTTG Events{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style type="text/tailwindcss">
+    [x-cloak] { display: none !important; }
+    .sidebar-link { @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-150 text-sm font-medium; }
+    .sidebar-link.active { @apply bg-indigo-600 text-white; }
+    .btn-primary { @apply inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors; }
+    .btn-secondary { @apply inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-lg transition-colors; }
+    .btn-success { @apply inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors; }
+    .btn-danger { @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors; }
+    .card { @apply bg-slate-800 border border-slate-700 rounded-xl p-6; }
+    .input { @apply w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm; }
+    .label { @apply block text-sm font-medium text-slate-300 mb-1; }
+    .badge-green { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-900/50 text-emerald-300 border border-emerald-700; }
+    .badge-yellow { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-900/50 text-amber-300 border border-amber-700; }
+    .badge-red { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-900/50 text-red-300 border border-red-700; }
+    .badge-blue { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-900/50 text-indigo-300 border border-indigo-700; }
+    .stat-card { @apply bg-slate-800 border border-slate-700 rounded-xl p-5 flex items-center gap-4; }
+    .toast { @apply fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center gap-3 max-w-sm; }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            slate: { 850: '#172033' }
+          }
+        }
+      }
+    }
+  </script>
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-slate-900 text-white h-full" x-data="appState()" @keydown.escape="closeSidebar()" @show-toast.window="showToast($event.detail.message, $event.detail.type)">
+
+{% block body %}
+<!-- Authenticated layout with sidebar -->
+<div class="flex h-screen overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside id="sidebar"
+    class="fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 border-r border-slate-700/50 flex flex-col transform transition-transform duration-200 lg:static lg:translate-x-0"
+    :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+  >
+    <!-- Logo -->
+    <div class="flex items-center justify-center px-5 py-4 border-b border-slate-700/50">
+      <img src="/static/images/ottg-events-logo.png"
+           alt="OTTG Events"
+           class="h-12 w-auto object-contain"
+           style="filter: brightness(0) invert(1);" />
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+
+      {% if user and user.is_developer %}
+      <!-- Developer navigation -->
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">Platform</p>
+      <a href="/admin/organisations" class="sidebar-link {% block nav_orgs %}{% endblock %}">
+        <i class="fas fa-building w-4"></i> Organisations
+      </a>
+
+      <div class="pt-2 mt-2 border-t border-slate-700/50">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">Events</p>
+        <a href="/dashboard" class="sidebar-link {% block nav_dashboard %}{% endblock %}">
+          <i class="fas fa-th-large w-4"></i> Dashboard
+        </a>
+        <a href="/events/create" class="sidebar-link {% block nav_create %}{% endblock %}">
+          <i class="fas fa-plus-circle w-4"></i> New Event
+        </a>
+      </div>
+
+      {% if event is defined and event %}
+      <div class="pt-2 mt-2 border-t border-slate-700/50">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2 truncate" title="{{ event.name }}">
+          {{ event.name[:22] }}{% if event.name|length > 22 %}…{% endif %}
+        </p>
+        <a href="/events/{{ event.id }}" class="sidebar-link {% block nav_event %}{% endblock %}">
+          <i class="fas fa-calendar-alt w-4"></i> Event Overview
+        </a>
+        <a href="/events/{{ event.id }}/import" class="sidebar-link {% block nav_import %}{% endblock %}">
+          <i class="fas fa-users w-4"></i> Attendees
+        </a>
+        <a href="/events/{{ event.id }}/tickets" class="sidebar-link {% block nav_tickets %}{% endblock %}">
+          <i class="fas fa-ticket-alt w-4"></i> Tickets
+        </a>
+        <a href="/checkin/{{ event.id }}" class="sidebar-link {% block nav_checkin %}{% endblock %}">
+          <i class="fas fa-qrcode w-4"></i> Check-In Scanner
+        </a>
+        <a href="/checkout/{{ event.id }}" class="sidebar-link {% block nav_checkout %}{% endblock %}">
+          <i class="fas fa-sign-out-alt w-4"></i> Check-Out Scanner
+        </a>
+        <a href="/events/{{ event.id }}/monitor" class="sidebar-link {% block nav_monitor %}{% endblock %}">
+          <i class="fas fa-tv w-4"></i> Check-In Monitor
+        </a>
+        <a href="/events/{{ event.id }}/attendees" class="sidebar-link {% block nav_guestlist %}{% endblock %}">
+          <i class="fas fa-list-alt w-4"></i> Guest List
+        </a>
+        <a href="/reports/{{ event.id }}" class="sidebar-link {% block nav_reports %}{% endblock %}">
+          <i class="fas fa-chart-bar w-4"></i> Reports
+        </a>
+      </div>
+      {% endif %}
+
+      <div class="pt-2 mt-2 border-t border-slate-700/50">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">Admin</p>
+        <a href="/archive" class="sidebar-link {% block nav_archive %}{% endblock %}">
+          <i class="fas fa-archive w-4"></i> Archive
+        </a>
+        <a href="/admin/users" class="sidebar-link {% block nav_users %}{% endblock %}">
+          <i class="fas fa-user-cog w-4"></i> All Users
+        </a>
+      </div>
+
+      {% elif user and user.is_org_admin %}
+      <!-- Org Admin navigation -->
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">Main</p>
+      <a href="/dashboard" class="sidebar-link {% block nav_dashboard_admin %}{% endblock %}">
+        <i class="fas fa-th-large w-4"></i> Dashboard
+      </a>
+      <a href="/events/create" class="sidebar-link {% block nav_create_admin %}{% endblock %}">
+        <i class="fas fa-plus-circle w-4"></i> New Event
+      </a>
+
+      {% if event is defined and event %}
+      <div class="pt-2 mt-2 border-t border-slate-700/50">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2 truncate" title="{{ event.name }}">
+          {{ event.name[:22] }}{% if event.name|length > 22 %}…{% endif %}
+        </p>
+        <a href="/events/{{ event.id }}" class="sidebar-link {% block nav_event_admin %}{% endblock %}">
+          <i class="fas fa-calendar-alt w-4"></i> Event Overview
+        </a>
+        <a href="/events/{{ event.id }}/import" class="sidebar-link {% block nav_import_admin %}{% endblock %}">
+          <i class="fas fa-users w-4"></i> Attendees
+        </a>
+        <a href="/events/{{ event.id }}/tickets" class="sidebar-link {% block nav_tickets_admin %}{% endblock %}">
+          <i class="fas fa-ticket-alt w-4"></i> Tickets
+        </a>
+        <a href="/checkin/{{ event.id }}" class="sidebar-link {% block nav_checkin_admin %}{% endblock %}">
+          <i class="fas fa-qrcode w-4"></i> Check-In Scanner
+        </a>
+        <a href="/checkout/{{ event.id }}" class="sidebar-link {% block nav_checkout_admin %}{% endblock %}">
+          <i class="fas fa-sign-out-alt w-4"></i> Check-Out Scanner
+        </a>
+        <a href="/events/{{ event.id }}/attendees" class="sidebar-link {% block nav_guestlist_admin %}{% endblock %}">
+          <i class="fas fa-list-alt w-4"></i> Guest List
+        </a>
+        <a href="/reports/{{ event.id }}" class="sidebar-link {% block nav_reports_admin %}{% endblock %}">
+          <i class="fas fa-chart-bar w-4"></i> Reports
+        </a>
+      </div>
+      {% endif %}
+
+      <div class="pt-2 mt-2 border-t border-slate-700/50">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">Admin</p>
+        <a href="/archive" class="sidebar-link {% block nav_archive_admin %}{% endblock %}">
+          <i class="fas fa-archive w-4"></i> Archive
+        </a>
+        <a href="/admin/users" class="sidebar-link {% block nav_users_admin %}{% endblock %}">
+          <i class="fas fa-user-cog w-4"></i> Manage Users
+        </a>
+      </div>
+
+      {% else %}
+      <!-- Check-in staff navigation -->
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2">Check-In</p>
+      <a href="/checkin-home" class="sidebar-link {% block nav_home_staff %}{% endblock %}">
+        <i class="fas fa-th-large w-4"></i> My Events
+      </a>
+
+      {% if event is defined and event %}
+      <div class="pt-2 mt-2 border-t border-slate-700/50">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 mb-2 truncate" title="{{ event.name }}">
+          {{ event.name[:22] }}{% if event.name|length > 22 %}…{% endif %}
+        </p>
+        <a href="/checkin/{{ event.id }}" class="sidebar-link {% block nav_checkin_staff %}{% endblock %}">
+          <i class="fas fa-qrcode w-4"></i> Check-In Scanner
+        </a>
+        <a href="/checkout/{{ event.id }}" class="sidebar-link {% block nav_checkout_staff %}{% endblock %}">
+          <i class="fas fa-sign-out-alt w-4"></i> Check-Out Scanner
+        </a>
+        <a href="/events/{{ event.id }}/monitor" class="sidebar-link {% block nav_monitor_staff %}{% endblock %}">
+          <i class="fas fa-tv w-4"></i> Check-In Monitor
+        </a>
+      </div>
+      {% endif %}
+      {% endif %}
+
+    </nav>
+
+    <!-- User footer -->
+    <div class="px-3 py-4 border-t border-slate-700/50 space-y-2">
+      <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800">
+        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
+          {% if user and user.is_developer %}bg-purple-600{% elif user and user.is_org_admin %}bg-indigo-600{% else %}bg-emerald-700{% endif %}">
+          {{ (user.display_name or user.username)[0].upper() if user else 'A' }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs text-white truncate">{{ user.display_name or user.username if user else 'Admin' }}</p>
+          <p class="text-xs {% if user and user.is_developer %}text-purple-400{% elif user and user.is_org_admin %}text-indigo-400{% else %}text-emerald-400{% endif %}">
+            {% if user and user.is_developer %}<i class="fas fa-code mr-1"></i>Developer
+            {% elif user and user.is_org_admin %}<i class="fas fa-crown mr-1"></i>Admin
+            {% elif user %}<i class="fas fa-qrcode mr-1"></i>Check-In
+            {% endif %}
+          </p>
+        </div>
+        <a href="/logout" class="text-slate-500 hover:text-red-400 text-xs transition-colors" title="Logout">
+          <i class="fas fa-sign-out-alt"></i>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Sidebar overlay (mobile) -->
+  <div
+    x-show="sidebarOpen"
+    x-cloak
+    @click="sidebarOpen = false"
+    class="fixed inset-0 z-30 bg-black/60 lg:hidden"
+  ></div>
+
+  <!-- Main content -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+    <!-- Top bar -->
+    <header class="bg-slate-800/50 border-b border-slate-700/50 px-4 py-3 flex items-center gap-3 lg:px-6">
+      <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden text-slate-400 hover:text-white p-1">
+        <i class="fas fa-bars text-lg"></i>
+      </button>
+      <div class="flex-1 min-w-0">
+        {% block page_header %}{% endblock %}
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        {% block header_actions %}{% endblock %}
+      </div>
+    </header>
+
+    <!-- Page content -->
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div x-show="toast.show" x-cloak x-transition.duration.300ms
+  :class="toast.type === 'success' ? 'bg-emerald-800 text-emerald-100 border border-emerald-600' : toast.type === 'error' ? 'bg-red-800 text-red-100 border border-red-600' : 'bg-indigo-800 text-indigo-100 border border-indigo-600'"
+  class="toast">
+  <i :class="toast.type === 'success' ? 'fas fa-check-circle' : toast.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-info-circle'"></i>
+  <span x-text="toast.message"></span>
+</div>
+
+{% endblock %}
+
+<script>
+  function appState() {
+    return {
+      sidebarOpen: false,
+      toast: { show: false, message: '', type: 'info' },
+
+      closeSidebar() { this.sidebarOpen = false; },
+
+      showToast(message, type = 'info', duration = 4000) {
+        this.toast = { show: true, message, type };
+        setTimeout(() => { this.toast.show = false; }, duration);
+      },
+
+      async apiFetch(url, options = {}) {
+        const res = await fetch(url, {
+          headers: { 'Content-Type': 'application/json', ...options.headers },
+          ...options,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.detail || `HTTP ${res.status}`);
+        }
+        return data;
+      },
+    };
+  }
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

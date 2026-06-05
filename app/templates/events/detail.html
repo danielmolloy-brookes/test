@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% block title %}{{ event.name }} — OTTG Events{% endblock %}
+{% block nav_event %}active{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-2 text-sm text-slate-400 min-w-0 overflow-hidden">
+    <a href="/dashboard" class="hover:text-white flex-shrink-0">Dashboard</a>
+    <i class="fas fa-chevron-right text-xs flex-shrink-0"></i>
+    <span class="text-white truncate min-w-0">{{ event.name }}</span>
+  </div>
+{% endblock %}
+
+{% block header_actions %}
+  <a href="/events/{{ event.id }}/edit" class="btn-secondary text-xs">
+    <i class="fas fa-edit"></i><span class="hidden sm:inline"> Edit</span>
+  </a>
+  <button @click="duplicateEvent()" :disabled="duplicating"
+    class="btn-secondary text-xs" title="Duplicate event">
+    <i class="fas" :class="duplicating ? 'fa-circle-notch fa-spin' : 'fa-copy'"></i>
+    <span class="hidden sm:inline" x-text="duplicating ? ' Duplicating…' : ' Duplicate'"></span>
+  </button>
+  <a href="/checkin/{{ event.id }}" class="btn-primary text-xs">
+    <i class="fas fa-qrcode"></i><span class="hidden sm:inline"> Open Scanner</span>
+  </a>
+{% endblock %}
+
+{% block content %}
+<div x-data="eventDetail({{ event.id }}, {{ event.is_archived | tojson }})">
+
+  <!-- Event header -->
+  <div class="card mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+      <div class="w-14 h-14 bg-indigo-900/50 rounded-xl flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-calendar-alt text-indigo-400 text-2xl"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <h1 class="text-2xl font-bold text-white">{{ event.name }}</h1>
+        <div class="flex flex-wrap gap-4 mt-2 text-sm text-slate-400">
+          <span><i class="fas fa-clock mr-1.5"></i>{{ event.date.strftime('%A, %d %B %Y at %H:%M') }}</span>
+          {% if event.location %}
+          <span><i class="fas fa-map-marker-alt mr-1.5"></i>{{ event.location }}</span>
+          {% endif %}
+        </div>
+        {% if event.description %}
+        <p class="text-sm text-slate-400 mt-2">{{ event.description }}</p>
+        {% endif %}
+        {% if event.ghl_workflow_id %}
+        <div class="mt-2 flex items-center gap-2">
+          <span class="badge-blue"><i class="fas fa-link mr-1"></i>GHL Workflow: {{ event.ghl_workflow_id[:20] }}…</span>
+          {% if event.ghl_attended_tag %}
+          <span class="badge-green"><i class="fas fa-tag mr-1"></i>{{ event.ghl_attended_tag }}</span>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="mt-2">
+          <span class="badge-yellow"><i class="fas fa-exclamation-triangle mr-1"></i>No GHL workflow set — tickets can't be sent until you edit the event</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="stat-card">
+      <div class="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center">
+        <i class="fas fa-users text-slate-300"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-white">{{ stats.total_attendees }}</p>
+        <p class="text-xs text-slate-400">Attendees</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="w-10 h-10 bg-blue-900/50 rounded-lg flex items-center justify-center">
+        <i class="fas fa-ticket-alt text-blue-400"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-white">{{ stats.tickets_sent_count }}</p>
+        <p class="text-xs text-slate-400">Tickets Sent</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="w-10 h-10 bg-emerald-900/50 rounded-lg flex items-center justify-center">
+        <i class="fas fa-check-circle text-emerald-400"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-white">{{ stats.checked_in_count }}</p>
+        <p class="text-xs text-slate-400">Checked In</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="w-10 h-10 bg-amber-900/50 rounded-lg flex items-center justify-center">
+        <i class="fas fa-percentage text-amber-400"></i>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-white">
+          {% if stats.total_attendees > 0 %}
+            {{ "%.0f"|format(stats.checked_in_count / stats.total_attendees * 100) }}%
+          {% else %}—{% endif %}
+        </p>
+        <p class="text-xs text-slate-400">Attendance Rate</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workflow steps -->
+  <div class="card mb-6">
+    <h2 class="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">Event Workflow</h2>
+    <div class="flex flex-col sm:flex-row gap-3">
+
+      <!-- Step 1: Import -->
+      <a href="/events/{{ event.id }}/import" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-indigo-500 transition-all">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center
+            {% if stats.total_attendees > 0 %}bg-emerald-900/50{% else %}bg-slate-600{% endif %}">
+            {% if stats.total_attendees > 0 %}
+            <i class="fas fa-check text-emerald-400 text-sm"></i>
+            {% else %}
+            <span class="text-slate-300 font-bold text-sm">1</span>
+            {% endif %}
+          </div>
+          <span class="text-sm font-semibold text-white">Import Attendees</span>
+        </div>
+        <p class="text-xs text-slate-400">Pull from GHL or upload CSV</p>
+        <p class="text-xs text-indigo-400 mt-2 group-hover:text-indigo-300">
+          {% if stats.total_attendees > 0 %}{{ stats.total_attendees }} imported ✓{% else %}Start here →{% endif %}
+        </p>
+      </a>
+
+      <!-- Step 2: Tickets -->
+      <a href="/events/{{ event.id }}/tickets" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-indigo-500 transition-all">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-600">
+            <span class="text-slate-300 font-bold text-sm">2</span>
+          </div>
+          <span class="text-sm font-semibold text-white">Generate & Send Tickets</span>
+        </div>
+        <p class="text-xs text-slate-400">Create QR codes & email via GHL</p>
+        <p class="text-xs text-indigo-400 mt-2 group-hover:text-indigo-300">
+          {% if stats.tickets_sent_count > 0 %}{{ stats.tickets_sent_count }} sent ✓{% else %}Manage tickets →{% endif %}
+        </p>
+      </a>
+
+      <!-- Step 3: Check-in -->
+      <a href="/checkin/{{ event.id }}" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-indigo-500 transition-all">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-600">
+            <span class="text-slate-300 font-bold text-sm">3</span>
+          </div>
+          <span class="text-sm font-semibold text-white">Event Day Check-In</span>
+        </div>
+        <p class="text-xs text-slate-400">Scan QR codes at the door</p>
+        <p class="text-xs text-indigo-400 mt-2 group-hover:text-indigo-300">Open scanner →</p>
+      </a>
+
+      <!-- Step 4: Report -->
+      <a href="/reports/{{ event.id }}" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-indigo-500 transition-all">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-600">
+            <span class="text-slate-300 font-bold text-sm">4</span>
+          </div>
+          <span class="text-sm font-semibold text-white">Attendance Report</span>
+        </div>
+        <p class="text-xs text-slate-400">View & export attendance data</p>
+        <p class="text-xs text-indigo-400 mt-2 group-hover:text-indigo-300">View report →</p>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- Check-In Staff Access -->
+  <div x-data="checkinPermissions({{ event.id }})" x-init="load()" class="card mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+        <i class="fas fa-shield-alt text-indigo-400"></i> Check-In Staff Access
+      </h2>
+      <span class="text-xs text-slate-500"
+        x-text="staff.length ? `${grantedCount} of ${staff.length} staff granted` : ''">
+      </span>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="loading" class="flex items-center justify-center py-6 text-slate-500">
+      <i class="fas fa-circle-notch fa-spin mr-2"></i> Loading…
+    </div>
+
+    <!-- No check-in staff exist yet -->
+    <div x-show="!loading && staff.length === 0" x-cloak class="text-center py-6">
+      <i class="fas fa-user-slash text-slate-700 text-3xl mb-2 block"></i>
+      <p class="text-slate-400 text-sm">No check-in staff accounts exist yet.</p>
+      <a href="/admin/users" class="text-indigo-400 text-xs hover:text-indigo-300 mt-1 inline-block">
+        <i class="fas fa-plus mr-1"></i>Create staff accounts →
+      </a>
+    </div>
+
+    <!-- Staff list -->
+    <div x-show="!loading && staff.length > 0" x-cloak class="space-y-2">
+      <template x-for="member in staff" :key="member.id">
+        <div class="flex items-center justify-between p-3 bg-slate-700/40 rounded-xl border border-slate-700/60 hover:border-slate-600 transition-colors">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+              :class="member.has_access ? 'bg-emerald-800 text-emerald-200' : 'bg-slate-600 text-slate-300'"
+              x-text="(member.display_name || member.username).charAt(0).toUpperCase()">
+            </div>
+            <div>
+              <p class="text-sm text-white font-medium" x-text="member.display_name || member.username"></p>
+              <p class="text-xs text-slate-500" x-text="`@${member.username}`"></p>
+            </div>
+          </div>
+          <button @click="toggle(member)"
+            :disabled="toggling === member.id"
+            :class="member.has_access
+              ? 'bg-emerald-700/80 hover:bg-red-800/80 border-emerald-600 hover:border-red-600 text-white group'
+              : 'bg-slate-600 hover:bg-indigo-700 border-slate-500 hover:border-indigo-500 text-slate-300 hover:text-white'"
+            class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all font-medium min-w-[120px] justify-center">
+            <template x-if="toggling === member.id">
+              <i class="fas fa-circle-notch fa-spin"></i>
+            </template>
+            <template x-if="toggling !== member.id">
+              <span class="flex items-center gap-1.5">
+                <i :class="member.has_access ? 'fas fa-check group-hover:hidden' : 'fas fa-plus'"></i>
+                <i x-show="member.has_access" class="fas fa-times hidden group-hover:inline"></i>
+                <span x-text="member.has_access ? 'Access Granted' : 'Grant Access'"></span>
+              </span>
+            </template>
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <p class="text-xs text-slate-600 mt-4 flex items-start gap-1.5">
+      <i class="fas fa-info-circle mt-0.5 flex-shrink-0"></i>
+      Check-in staff can only open the scanner for events listed here. Admins always have full access.
+    </p>
+  </div>
+
+  <!-- Folder & archive controls -->
+  <div class="card mb-6">
+    <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+      <i class="fas fa-folder text-indigo-400"></i> Organisation &amp; Archive
+    </h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+      <!-- Folder picker -->
+      <div>
+        <label class="label text-xs">Folder</label>
+        <div class="flex gap-2">
+          <select id="folderSelect" class="input text-sm flex-1">
+            <option value="">No folder</option>
+            {% for f in folders %}
+            <option value="{{ f.id }}"
+              {% if event.folder_id == f.id %}selected{% endif %}>
+              {{ f.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <button @click="saveFolder()"
+            class="btn-secondary text-xs px-3">
+            <i class="fas fa-save"></i>
+          </button>
+        </div>
+        {% if event.folder_id and event.folder %}
+        <p class="text-xs text-slate-500 mt-1">
+          Currently in
+          <span class="font-medium" style="color: {{ event.folder.color }}">{{ event.folder.name }}</span>
+        </p>
+        {% endif %}
+      </div>
+
+      <!-- Archive / restore -->
+      <div>
+        <label class="label text-xs">Archive status</label>
+        {% if event.is_archived %}
+        <div class="flex items-center gap-3">
+          <span class="badge-yellow"><i class="fas fa-archive mr-1"></i>Archived{% if event.archived_at %} {{ event.archived_at.strftime('%d %b %Y') }}{% endif %}</span>
+          <button @click="unarchiveEvent()"
+            class="btn-secondary text-xs hover:bg-emerald-700 hover:text-white transition-colors">
+            <i class="fas fa-undo"></i> Restore to Dashboard
+          </button>
+        </div>
+        {% else %}
+        <div class="flex items-center gap-3">
+          <span class="badge-green"><i class="fas fa-circle mr-1 text-xs"></i>Live</span>
+          <button @click="archiveEvent()"
+            class="btn-secondary text-xs hover:bg-amber-700 hover:text-white transition-colors">
+            <i class="fas fa-archive"></i> Move to Archive
+          </button>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete event -->
+  <div class="text-right">
+    <button @click="deleteEvent()" class="text-xs text-slate-600 hover:text-red-400 transition-colors">
+      <i class="fas fa-trash mr-1"></i> Delete this event
+    </button>
+  </div>
+
+  {# ── Mobile app & booking settings panels ── #}
+  {% if user and user.is_admin %}
+  {% include "partials/event_mobile_settings.html" %}
+  {% include "partials/event_booking_settings.html" %}
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function eventDetail(eventId, isArchived) {
+    return {
+      archived:    isArchived,
+      duplicating: false,
+
+      toast(message, type = 'success') {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { message, type } }));
+      },
+
+      async saveFolder() {
+        const folderId = document.getElementById('folderSelect').value;
+        const res = await fetch(`/api/events/${eventId}/folder`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder_id: folderId ? parseInt(folderId) : null }),
+        });
+        if (res.ok) {
+          this.toast('Folder updated');
+          setTimeout(() => window.location.reload(), 600);
+        } else {
+          const d = await res.json();
+          this.toast(d.detail || 'Failed', 'error');
+        }
+      },
+
+      async archiveEvent() {
+        if (!confirm('Move this event to the archive?\n\nIt will be hidden from the dashboard but all data and reports remain accessible.')) return;
+        const res  = await fetch(`/api/events/${eventId}/archive`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          this.toast(data.message);
+          setTimeout(() => window.location.href = '/dashboard', 900);
+        } else {
+          this.toast(data.detail || 'Failed', 'error');
+        }
+      },
+
+      async unarchiveEvent() {
+        const res  = await fetch(`/api/events/${eventId}/unarchive`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          this.toast(data.message);
+          setTimeout(() => window.location.href = '/dashboard', 900);
+        } else {
+          this.toast(data.detail || 'Failed', 'error');
+        }
+      },
+
+      async duplicateEvent() {
+        const msg = `Duplicate this event?\n\nA copy will be created with all attendees but with:\n• Fresh ticket IDs (tickets will need to be resent)\n• All check-in, check-out and badge data cleared\n\nYou can rename and change the date after duplicating.`;
+        if (!confirm(msg)) return;
+        this.duplicating = true;
+        try {
+          const res  = await fetch(`/api/events/${eventId}/duplicate`, { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            this.toast(`"${data.name}" created with ${data.attendee_count} attendees`);
+            setTimeout(() => window.location.href = `/events/${data.new_event_id}`, 900);
+          } else {
+            this.toast(data.detail || 'Duplication failed', 'error');
+            this.duplicating = false;
+          }
+        } catch (e) {
+          this.toast('Network error: ' + e.message, 'error');
+          this.duplicating = false;
+        }
+      },
+
+      async deleteEvent() {
+        if (!confirm('Delete this event and ALL its attendees? This cannot be undone.')) return;
+        try {
+          await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+          window.location.href = '/dashboard';
+        } catch (e) {
+          alert('Failed to delete: ' + e.message);
+        }
+      },
+    };
+  }
+
+  function checkinPermissions(eventId) {
+    return {
+      staff:    [],
+      loading:  true,
+      toggling: null,   // user id currently being toggled
+
+      get grantedCount() {
+        return this.staff.filter(u => u.has_access).length;
+      },
+
+      async load() {
+        this.loading = true;
+        try {
+          const res = await fetch(`/api/events/${eventId}/checkin-staff`);
+          this.staff = await res.json();
+        } catch (e) {
+          console.error('Failed to load check-in staff:', e);
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      async toggle(member) {
+        this.toggling = member.id;
+        try {
+          const method = member.has_access ? 'DELETE' : 'POST';
+          const res = await fetch(`/api/events/${eventId}/permissions/${member.id}`, { method });
+          if (res.ok) {
+            member.has_access = !member.has_access;
+          } else {
+            const err = await res.json();
+            alert(err.detail || 'Failed to update permission');
+          }
+        } catch (e) {
+          alert('Network error: ' + e.message);
+        } finally {
+          this.toggling = null;
+        }
+      },
+    };
+  }
+</script>
+{% endblock %}

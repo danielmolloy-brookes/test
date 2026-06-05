@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+{% block title %}Import Attendees — {{ event.name }}{% endblock %}
+{% block nav_import %}active{% endblock %}
+
+{% block page_header %}
+  <div class="flex items-center gap-2 text-sm text-slate-400 min-w-0 overflow-hidden">
+    <a href="/dashboard" class="hover:text-white flex-shrink-0">Dashboard</a>
+    <i class="fas fa-chevron-right text-xs flex-shrink-0"></i>
+    <a href="/events/{{ event.id }}" class="hover:text-white truncate min-w-0">{{ event.name }}</a>
+    <i class="fas fa-chevron-right text-xs flex-shrink-0"></i>
+    <span class="text-white flex-shrink-0">Attendees</span>
+  </div>
+{% endblock %}
+
+{% block header_actions %}
+  <a href="/events/{{ event.id }}/tickets" class="btn-primary text-xs">
+    <i class="fas fa-arrow-right"></i><span class="hidden sm:inline"> Next: Tickets</span>
+  </a>
+{% endblock %}
+
+{% block content %}
+<div x-data='importAttendees({{ event.id }}, {{ event.ghl_api_key | tojson }}, {{ event.ghl_location_id | tojson }})'>
+
+  <!-- Page title -->
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-white">Import Attendees</h1>
+    <p class="text-slate-400 text-sm mt-1">Add attendees from GoHighLevel or upload a CSV file.</p>
+  </div>
+
+  <!-- Import tabs -->
+  <div class="flex gap-1 mb-6 bg-slate-800 border border-slate-700 rounded-xl p-1 max-w-sm">
+    <button @click="tab='ghl'"
+      :class="tab === 'ghl' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+      class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all">
+      <i class="fas fa-link mr-1.5"></i> From GHL
+    </button>
+    <button @click="tab='csv'"
+      :class="tab === 'csv' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+      class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all">
+      <i class="fas fa-file-csv mr-1.5"></i> Upload CSV
+    </button>
+    <button @click="tab='manual'"
+      :class="tab === 'manual' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+      class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all">
+      <i class="fas fa-user-plus mr-1.5"></i> Manual
+    </button>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Import panel -->
+    <div class="lg:col-span-1 space-y-4">
+
+      <!-- GHL import -->
+      <div x-show="tab === 'ghl'" class="card space-y-4">
+        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+          <i class="fas fa-link text-indigo-400"></i> Import from GoHighLevel
+        </h2>
+        <p class="text-xs text-slate-400">Search by tag to pick contacts, or skip preview to import all matching contacts in the background (up to 5,000).</p>
+
+        <div>
+          <label class="label">Filter by Tag <span class="text-slate-500">(optional)</span></label>
+          <div class="flex gap-2">
+            <input type="text" x-model="ghlTag" placeholder="e.g. Registered"
+              class="input flex-1" @keydown.enter="previewGHL()" @input="clearPreview()" />
+            <button @click="previewGHL()" :disabled="previewing"
+              class="btn-secondary px-3 flex-shrink-0" :class="previewing && 'opacity-60'">
+              <i class="fas fa-search" :class="previewing && 'fa-spin'"></i>
+            </button>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Leave blank to preview all contacts from this location</p>
+        </div>
+
+        <!-- Checkbox contact list (shown after preview) -->
+        <div x-show="previewContacts.length > 0" x-cloak class="space-y-2">
+          <!-- Select-all header -->
+          <div class="flex items-center justify-between px-1">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox"
+                :checked="allSelected"
+                @change="toggleAll($event.target.checked)"
+                x-effect="$el.indeterminate = selectedIds.length > 0 && !allSelected"
+                class="accent-indigo-500" />
+              <span class="text-xs text-slate-300 font-medium">
+                <span x-text="selectedIds.length"></span> / <span x-text="previewContacts.length"></span> selected
+              </span>
+            </label>
+            <button @click="clearPreview()" class="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+              <i class="fas fa-times mr-1"></i>Clear
+            </button>
+          </div>
+
+          <!-- Scrollable contact list -->
+          <div class="max-h-60 overflow-y-auto rounded-lg border border-slate-700 divide-y divide-slate-700/40">
+            <template x-for="c in previewContacts" :key="c.id">
+              <label class="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-700/40 cursor-pointer transition-colors">
+                <input type="checkbox"
+                  :checked="selectedIds.includes(c.id)"
+                  @change="toggleContact(c.id, $event.target.checked)"
+                  class="accent-indigo-500 flex-shrink-0" />
+                <div class="min-w-0">
+                  <p class="text-xs text-white truncate"
+                    x-text="[c.first_name, c.last_name].filter(Boolean).join(' ') || '(no name)'"></p>
+                  <p class="text-xs text-slate-500 truncate" x-text="c.email || '(no email)'"></p>
+                </div>
+              </label>
+            </template>
+          </div>
+
+          <!-- Overflow note -->
+          <p x-show="previewTotal > previewContacts.length" class="text-xs text-amber-400">
+            <i class="fas fa-exclamation-triangle mr-1"></i>
+            Showing first <span x-text="previewContacts.length"></span> of <span x-text="previewTotal"></span> —
+            use "Import All" below to import the complete list.
+          </p>
+
+          <!-- Import selected button -->
+          <button @click="importSelected()"
+            :disabled="selectedIds.length === 0 || importing"
+            class="w-full btn-primary justify-center text-sm"
+            :class="(selectedIds.length === 0 || importing) && 'opacity-60'">
+            <i class="fas fa-cloud-download-alt" :class="importing && 'fa-spin'"></i>
+            <span x-text="importing ? 'Importing…' : `Import Selected (${selectedIds.length})`"></span>
+          </button>
+        </div>
+
+        <!-- Import without preview (shown when no contact list loaded) -->
+        <button x-show="previewContacts.length === 0" @click="startGHLImport()"
+          :disabled="importJob && importJob.status === 'running'"
+          class="w-full btn-secondary justify-center text-sm"
+          :class="(importJob && importJob.status === 'running') && 'opacity-60'">
+          <i class="fas fa-cloud-download-alt" :class="importJob?.status === 'running' && 'fa-spin'"></i>
+          <span x-text="importJob?.status === 'running' ? 'Importing…' : 'Import All (skip preview)'"></span>
+        </button>
+
+        <!-- Background import progress bar -->
+        <div x-show="importJob" x-cloak class="space-y-2">
+          <div class="flex justify-between text-xs text-slate-400">
+            <span x-text="importJob?.status === 'done' ? '✅ Complete' : '⏳ Fetching from GHL…'"></span>
+            <span x-text="`${importJob?.added ?? 0} added · ${importJob?.skipped ?? 0} skipped`"></span>
+          </div>
+          <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div class="h-full bg-indigo-500 rounded-full transition-all duration-500"
+              :style="`width: ${importJob?.status === 'done' ? 100 : importJob?.fetched ? Math.min((importJob.fetched / Math.max(importJob.total || importJob.fetched, 1)) * 100, 95) : 5}%`">
+            </div>
+          </div>
+          <p class="text-xs text-slate-500"
+            x-text="importJob?.fetched ? `${importJob.fetched} contacts fetched from GHL` : 'Connecting to GHL…'"></p>
+          <template x-if="importJob?.errors?.length">
+            <div class="p-2 bg-amber-900/20 border border-amber-700/40 rounded-lg">
+              <p class="text-xs text-amber-400 font-medium mb-1">Warnings</p>
+              <ul class="space-y-0.5">
+                <template x-for="e in importJob.errors.slice(0,5)" :key="e">
+                  <li class="text-xs text-amber-300/70" x-text="'• ' + e"></li>
+                </template>
+              </ul>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="ghlError" x-cloak class="p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-xs text-red-300" x-text="ghlError"></div>
+      </div>
+
+      <!-- CSV import -->
+      <div x-show="tab === 'csv'" class="card space-y-4">
+        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+          <i class="fas fa-file-csv text-indigo-400"></i> Upload CSV File
+        </h2>
+        <p class="text-xs text-slate-400">CSV must have an <code class="bg-slate-700 px-1 rounded">email</code> column. Optional: <code class="bg-slate-700 px-1 rounded">first_name</code>, <code class="bg-slate-700 px-1 rounded">last_name</code>, <code class="bg-slate-700 px-1 rounded">phone</code>.</p>
+
+        <div
+          class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-6 text-center cursor-pointer transition-colors"
+          @click="$refs.csvInput.click()"
+          @dragover.prevent
+          @drop.prevent="handleDrop($event)"
+        >
+          <i class="fas fa-cloud-upload-alt text-slate-500 text-2xl mb-2"></i>
+          <p class="text-sm text-slate-400" x-text="csvFile ? csvFile.name : 'Click or drag CSV here'"></p>
+          <input type="file" accept=".csv" x-ref="csvInput" class="hidden" @change="csvFile = $event.target.files[0]" />
+        </div>
+
+        <button @click="importCSV()" :disabled="!csvFile || importing"
+          class="w-full btn-primary justify-center"
+          :class="(!csvFile || importing) && 'opacity-60'">
+          <i class="fas fa-upload" :class="importing && 'fa-spin'"></i>
+          <span x-text="importing ? 'Importing…' : 'Import CSV'"></span>
+        </button>
+      </div>
+
+      <!-- Manual add -->
+      <div x-show="tab === 'manual'" class="card space-y-4">
+        <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+          <i class="fas fa-user-plus text-indigo-400"></i> Add Manually
+        </h2>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">First Name</label>
+            <input type="text" x-model="manual.first_name" class="input" placeholder="Jane" />
+          </div>
+          <div>
+            <label class="label">Last Name</label>
+            <input type="text" x-model="manual.last_name" class="input" placeholder="Smith" />
+          </div>
+        </div>
+        <div>
+          <label class="label">Email <span class="text-red-400">*</span></label>
+          <input type="email" x-model="manual.email" class="input" placeholder="jane@example.com" />
+        </div>
+        <div>
+          <label class="label">Phone</label>
+          <input type="tel" x-model="manual.phone" class="input" placeholder="+44 7700 900000" />
+        </div>
+        <div>
+          <label class="label">Company <span class="text-slate-500">(optional)</span></label>
+          <input type="text" x-model="manual.company" class="input" placeholder="Acme Ltd" />
+        </div>
+        <div>
+          <label class="label">GHL Contact ID <span class="text-slate-500">(optional)</span></label>
+          <input type="text" x-model="manual.ghl_contact_id" class="input" placeholder="Leave blank to auto-lookup" />
+        </div>
+        <div>
+          <label class="label">Notes <span class="text-slate-500">(optional)</span></label>
+          <input type="text" x-model="manual.notes" class="input" placeholder="e.g. Dietary needs, special requirements…" />
+        </div>
+        <!-- VIP toggle -->
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-700 hover:border-yellow-600/50 cursor-pointer transition-colors"
+          :class="manual.is_vip ? 'border-yellow-600/70 bg-yellow-900/20' : ''">
+          <input type="checkbox" x-model="manual.is_vip" class="w-4 h-4 accent-yellow-500" />
+          <div class="flex items-center gap-2">
+            <i class="fas fa-crown" :class="manual.is_vip ? 'text-yellow-400' : 'text-slate-600'"></i>
+            <span class="text-sm font-medium" :class="manual.is_vip ? 'text-yellow-300' : 'text-slate-400'">VIP Guest</span>
+          </div>
+        </label>
+        <button @click="addManual()" :disabled="!manual.email || importing"
+          class="w-full btn-primary justify-center"
+          :class="(!manual.email || importing) && 'opacity-60'">
+          <i class="fas fa-plus"></i> Add Attendee
+        </button>
+      </div>
+
+      <!-- Result message -->
+      <div x-show="resultMsg" x-cloak
+        :class="resultType === 'success' ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300' : 'bg-red-900/30 border-red-700/50 text-red-300'"
+        class="p-3 border rounded-lg text-xs"
+        x-text="resultMsg">
+      </div>
+    </div>
+
+    <!-- Attendees list -->
+    <div class="lg:col-span-2 card">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-white">
+          Attendees
+          <span class="text-slate-500 font-normal ml-1">({{ attendees|length }})</span>
+        </h2>
+        <div class="flex gap-2">
+          <input type="text" x-model="search" placeholder="Search…"
+            class="input text-xs py-1.5 px-3 w-40" />
+          <button @click="loadAttendees()" class="btn-secondary text-xs py-1.5 px-3">
+            <i class="fas fa-sync" :class="loading && 'fa-spin'"></i>
+          </button>
+        </div>
+      </div>
+
+      <div x-show="loading" class="text-center py-8 text-slate-500 text-sm">
+        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i><br>Loading…
+      </div>
+
+      <div x-show="!loading && attendees.length === 0" x-cloak class="text-center py-12 text-slate-500 text-sm">
+        <i class="fas fa-users text-3xl mb-2 block text-slate-700"></i>
+        No attendees yet. Import from GHL or upload a CSV.
+      </div>
+
+      <div x-show="!loading && attendees.length > 0" class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs text-slate-500 uppercase tracking-wider border-b border-slate-700">
+              <th class="text-left py-2 pr-3">Name</th>
+              <th class="text-left py-2 pr-3">Email</th>
+              <th class="text-left py-2 pr-3 hidden sm:table-cell">GHL</th>
+              <th class="text-right py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-700/50">
+            <template x-for="a in filteredAttendees" :key="a.id">
+              <tr class="hover:bg-slate-700/20 transition-colors" :class="a.is_vip ? 'bg-yellow-900/10' : ''">
+                <td class="py-2.5 pr-3">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-white font-medium" x-text="fullName(a)"></span>
+                    <span x-show="a.is_vip" class="text-yellow-400 text-xs" title="VIP"><i class="fas fa-crown"></i></span>
+                  </div>
+                  <p x-show="a.company" class="text-xs text-slate-400 mt-0.5" x-text="a.company"></p>
+                  <p x-show="a.notes" class="text-xs text-slate-500 italic mt-0.5" x-text="a.notes"></p>
+                </td>
+                <td class="py-2.5 pr-3 text-slate-400 text-xs truncate max-w-[150px]" x-text="a.email || '—'"></td>
+                <td class="py-2.5 pr-3 hidden sm:table-cell">
+                  <span x-show="a.ghl_contact_id" class="badge-blue text-xs">
+                    <i class="fas fa-link mr-1"></i>Linked
+                  </span>
+                  <span x-show="!a.ghl_contact_id" class="badge-yellow text-xs">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>No GHL
+                  </span>
+                </td>
+                <td class="py-2.5 text-right">
+                  <button @click="removeAttendee(a.id)"
+                    class="text-slate-600 hover:text-red-400 transition-colors p-1">
+                    <i class="fas fa-trash text-xs"></i>
+                  </button>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function importAttendees(eventId, ghlApiKey, ghlLocationId) {
+  return {
+    eventId: eventId,
+    ghlApiKey: ghlApiKey,
+    ghlLocationId: ghlLocationId,
+    tab: 'ghl',
+    ghlTag: '',
+    ghlError: '',
+    importJob: null,
+    previewContacts: [],
+    previewTotal: 0,
+    selectedIds: [],
+    previewing: false,
+    csvFile: null,
+    importing: false,
+    resultMsg: '',
+    resultType: 'success',
+    loading: false,
+    search: '',
+    manual: { first_name: '', last_name: '', email: '', phone: '', company: '', ghl_contact_id: '', notes: '', is_vip: false },
+    attendees: {{ attendees | tojson }},
+
+    get filteredAttendees() {
+      if (!this.search) return this.attendees;
+      const s = this.search.toLowerCase();
+      return this.attendees.filter(a =>
+        (a.first_name || '').toLowerCase().includes(s) ||
+        (a.last_name || '').toLowerCase().includes(s) ||
+        (a.email || '').toLowerCase().includes(s)
+      );
+    },
+
+    get allSelected() {
+      return this.previewContacts.length > 0 && this.selectedIds.length === this.previewContacts.length;
+    },
+
+    fullName(a) {
+      return [a.first_name, a.last_name].filter(Boolean).join(' ') || a.email || 'Unknown';
+    },
+
+    showResult(msg, type = 'success') {
+      this.resultMsg = msg;
+      this.resultType = type;
+      setTimeout(() => this.resultMsg = '', 6000);
+    },
+
+    clearPreview() {
+      this.previewContacts = [];
+      this.selectedIds = [];
+      this.previewTotal = 0;
+    },
+
+    toggleAll(checked) {
+      this.selectedIds = checked ? this.previewContacts.map(c => c.id) : [];
+    },
+
+    toggleContact(id, checked) {
+      if (checked) {
+        if (!this.selectedIds.includes(id)) this.selectedIds = [...this.selectedIds, id];
+      } else {
+        this.selectedIds = this.selectedIds.filter(i => i !== id);
+      }
+    },
+
+    async previewGHL() {
+      if (!this.ghlApiKey || !this.ghlLocationId) {
+        this.ghlError = 'No GHL API Key or Location ID set on this event. Edit the event settings first.';
+        return;
+      }
+      this.previewing = true;
+      this.ghlError = '';
+      this.clearPreview();
+      try {
+        const params = new URLSearchParams({ api_key: this.ghlApiKey, location_id: this.ghlLocationId, limit: 500 });
+        if (this.ghlTag) params.set('tag', this.ghlTag);
+        const res = await fetch(`/api/ghl/contacts?${params}`);
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || data.detail || 'Failed to load contacts');
+        this.previewContacts = data.contacts || [];
+        this.previewTotal = data.total || this.previewContacts.length;
+        this.selectedIds = this.previewContacts.map(c => c.id); // select all by default
+      } catch (e) {
+        this.ghlError = e.message;
+      } finally {
+        this.previewing = false;
+      }
+    },
+
+    async importSelected() {
+      if (!this.selectedIds.length) return;
+      this.importing = true;
+      this.ghlError = '';
+      try {
+        const contacts = this.previewContacts.filter(c => this.selectedIds.includes(c.id));
+        const res = await fetch(`/api/events/${this.eventId}/import-ghl-selected`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(contacts),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Import failed');
+        this.showResult(`✅ Added ${data.added} contacts, skipped ${data.skipped} duplicates.`);
+        this.clearPreview();
+        await this.loadAttendees();
+      } catch (e) {
+        this.ghlError = e.message;
+      } finally {
+        this.importing = false;
+      }
+    },
+
+    async startGHLImport() {
+      if (!this.ghlApiKey || !this.ghlLocationId) {
+        this.ghlError = 'No GHL API Key or Location ID set on this event. Edit the event settings first.';
+        return;
+      }
+      this.ghlError = '';
+      this.importJob = { status: 'running', fetched: 0, added: 0, skipped: 0, errors: [] };
+
+      try {
+        const body = new FormData();
+        if (this.ghlTag) body.append('tag', this.ghlTag);
+        const res = await fetch(`/api/events/${this.eventId}/import-ghl`, { method: 'POST', body });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to start import');
+
+        const jobId = data.job_id;
+        const poll = async () => {
+          try {
+            const pr = await fetch(`/api/events/${this.eventId}/import-jobs/${jobId}`);
+            const pd = await pr.json();
+            this.importJob = pd;
+
+            if (pd.status === 'done') {
+              this.showResult(`✅ Imported ${pd.added} contacts (${pd.skipped} duplicates skipped)`);
+              await this.loadAttendees();
+            } else {
+              setTimeout(poll, 1500);
+            }
+          } catch (e) {
+            this.ghlError = 'Polling error: ' + e.message;
+          }
+        };
+        setTimeout(poll, 1500);
+
+      } catch (e) {
+        this.ghlError = e.message;
+        this.importJob = null;
+      }
+    },
+
+    async importCSV() {
+      if (!this.csvFile) return;
+      this.importing = true;
+      const form = new FormData();
+      form.append('file', this.csvFile);
+      try {
+        const res = await fetch(`/api/events/${this.eventId}/import-csv`, { method: 'POST', body: form });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'CSV import failed');
+        this.showResult(`✅ Added ${data.added} attendees, skipped ${data.skipped} duplicates.`);
+        await this.loadAttendees();
+        this.csvFile = null;
+      } catch (e) {
+        this.showResult('❌ ' + e.message, 'error');
+      } finally {
+        this.importing = false;
+      }
+    },
+
+    handleDrop(e) {
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith('.csv')) this.csvFile = file;
+    },
+
+    async addManual() {
+      if (!this.manual.email) return;
+      this.importing = true;
+      try {
+        const res = await fetch(`/api/events/${this.eventId}/attendees`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.manual),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to add attendee');
+        this.showResult(`✅ Added ${this.manual.first_name || this.manual.email}`);
+        this.manual = { first_name: '', last_name: '', email: '', phone: '', ghl_contact_id: '', notes: '', is_vip: false };
+        await this.loadAttendees();
+      } catch (e) {
+        this.showResult('❌ ' + e.message, 'error');
+      } finally {
+        this.importing = false;
+      }
+    },
+
+    async loadAttendees() {
+      this.loading = true;
+      try {
+        const res = await fetch(`/api/events/${this.eventId}/attendees?limit=500`);
+        this.attendees = await res.json();
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async removeAttendee(id) {
+      if (!confirm('Remove this attendee?')) return;
+      await fetch(`/api/attendees/${id}`, { method: 'DELETE' });
+      this.attendees = this.attendees.filter(a => a.id !== id);
+    },
+  };
+}
+</script>
+{% endblock %}

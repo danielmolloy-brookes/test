@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Select Event — OTTG Events{% endblock %}
+{% block nav_home_staff %}active{% endblock %}
+
+{% block page_header %}
+  <h1 class="text-lg font-semibold text-white">Select Event</h1>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <div class="mb-6 text-center">
+    <img src="/static/images/ottg-events-logo.png"
+         alt="OTTG Events"
+         class="h-14 w-auto object-contain mx-auto mb-5"
+         style="filter: brightness(0) invert(1);" />
+    <h1 class="text-2xl font-bold text-white">Welcome, {{ user.display_name or user.username }}</h1>
+    <p class="text-slate-400 text-sm mt-1">Select an event, then choose which scanner to open.</p>
+  </div>
+
+  {% if not events %}
+  <div class="card text-center py-12">
+    <i class="fas fa-lock text-slate-600 text-4xl mb-3 block"></i>
+    <p class="text-slate-400 font-medium">No events assigned to you yet.</p>
+    <p class="text-slate-600 text-sm mt-2">
+      An admin needs to grant you access to an event before you can scan.<br>
+      They can do this from the event's detail page under <em>Check-In Staff Access</em>.
+    </p>
+  </div>
+
+  {% else %}
+  <div class="space-y-4">
+    {% for event in events %}
+    <div class="card border border-slate-700 hover:border-slate-600 transition-colors">
+
+      <!-- Event header -->
+      <div class="flex items-start gap-3 mb-4">
+        <div class="w-10 h-10 bg-indigo-900/50 rounded-xl flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-calendar-alt text-indigo-400"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-base font-semibold text-white leading-tight">{{ event.name }}</p>
+          <div class="flex flex-wrap gap-3 mt-1 text-xs text-slate-400">
+            <span><i class="fas fa-clock mr-1"></i>{{ event.date.strftime('%d %b %Y, %H:%M') if event.date else 'TBC' }}</span>
+            {% if event.location %}
+            <span><i class="fas fa-map-marker-alt mr-1"></i>{{ event.location }}</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Scanner buttons -->
+      <div class="grid grid-cols-3 gap-2">
+        <a href="/checkin/{{ event.id }}"
+          class="flex flex-col items-center gap-2 p-3 rounded-xl bg-indigo-900/30 border border-indigo-700/50 hover:bg-indigo-700/40 hover:border-indigo-500 transition-all text-center group">
+          <i class="fas fa-qrcode text-indigo-400 text-xl group-hover:text-indigo-300"></i>
+          <span class="text-xs font-medium text-indigo-300 group-hover:text-indigo-200 leading-tight">Check-In<br>Scanner</span>
+        </a>
+        <a href="/checkout/{{ event.id }}"
+          class="flex flex-col items-center gap-2 p-3 rounded-xl bg-amber-900/20 border border-amber-700/40 hover:bg-amber-700/30 hover:border-amber-500 transition-all text-center group">
+          <i class="fas fa-sign-out-alt text-amber-400 text-xl group-hover:text-amber-300"></i>
+          <span class="text-xs font-medium text-amber-300 group-hover:text-amber-200 leading-tight">Check-Out<br>Scanner</span>
+        </a>
+        <a href="/events/{{ event.id }}/monitor"
+          class="flex flex-col items-center gap-2 p-3 rounded-xl bg-slate-700/40 border border-slate-600/50 hover:bg-slate-600/40 hover:border-slate-500 transition-all text-center group">
+          <i class="fas fa-tv text-slate-300 text-xl group-hover:text-white"></i>
+          <span class="text-xs font-medium text-slate-300 group-hover:text-white leading-tight">Check-In<br>Monitor</span>
+        </a>
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="mt-8 text-center">
+    <a href="/logout" class="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+      <i class="fas fa-sign-out-alt mr-1"></i> Sign out
+    </a>
+  </div>
+
+</div>
+{% endblock %}

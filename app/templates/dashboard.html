@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — OTTG Events{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block page_header %}
+  <h1 class="text-lg font-semibold text-white">Dashboard</h1>
+{% endblock %}
+
+{% block header_actions %}
+  {% if archived_count %}
+  <a href="/archive" class="btn-secondary text-xs">
+    <i class="fas fa-archive"></i> Archive
+    <span class="ml-1 bg-slate-600 text-slate-300 text-xs px-1.5 py-0.5 rounded-full">{{ archived_count }}</span>
+  </a>
+  {% endif %}
+  <a href="/events/create" class="btn-primary">
+    <i class="fas fa-plus"></i> New Event
+  </a>
+{% endblock %}
+
+{% block content %}
+{#
+  IMPORTANT: No nested x-data on folder group divs.
+  Folder open/close state lives in the parent dashboard() component so that
+  archiveEvent() is always in scope when buttons inside groups are clicked.
+#}
+<div x-data="dashboard()">
+
+  {% if not events %}
+  <div class="flex flex-col items-center justify-center py-24 text-center">
+    <div class="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mb-6 border border-slate-700">
+      <i class="fas fa-calendar-plus text-slate-500 text-4xl"></i>
+    </div>
+    <h2 class="text-xl font-semibold text-white mb-2">No events yet</h2>
+    <p class="text-slate-400 text-sm mb-6 max-w-sm">Create your first event to get started with importing attendees, generating QR tickets and checking in on the day.</p>
+    <a href="/events/create" class="btn-primary text-base px-6 py-2.5">
+      <i class="fas fa-plus"></i> Create First Event
+    </a>
+  </div>
+
+  {% else %}
+
+  <!-- Stats overview -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4 flex items-center gap-3">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 bg-indigo-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-calendar text-indigo-400 text-sm"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-xl sm:text-2xl font-bold text-white leading-none">{{ events|length }}</p>
+        <p class="text-xs text-slate-400 mt-0.5 truncate">Live Events</p>
+      </div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4 flex items-center gap-3">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-users text-emerald-400 text-sm"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-xl sm:text-2xl font-bold text-white leading-none">{{ events | sum(attribute='total_attendees') }}</p>
+        <p class="text-xs text-slate-400 mt-0.5 truncate">Attendees</p>
+      </div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4 flex items-center gap-3">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 bg-blue-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-ticket-alt text-blue-400 text-sm"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-xl sm:text-2xl font-bold text-white leading-none">{{ events | sum(attribute='tickets_sent_count') }}</p>
+        <p class="text-xs text-slate-400 mt-0.5 truncate">Tickets Sent</p>
+      </div>
+    </div>
+    <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4 flex items-center gap-3">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 bg-amber-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-check-circle text-amber-400 text-sm"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-xl sm:text-2xl font-bold text-white leading-none">{{ events | sum(attribute='checked_in_count') }}</p>
+        <p class="text-xs text-slate-400 mt-0.5 truncate">Checked In</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Folder groups ── (no nested x-data — open state lives in dashboard()) -->
+  {% for group in folder_groups %}
+  <div class="mb-6">
+    <button @click="toggleFolder('{{ group.folder_id }}')"
+      class="w-full flex items-center gap-3 mb-3 group text-left">
+      <span class="w-3 h-3 rounded-sm flex-shrink-0" style="background-color: {{ group.folder_color }};"></span>
+      <span class="text-sm font-semibold text-slate-200 group-hover:text-white transition-colors">
+        {{ group.folder_name }}
+      </span>
+      <span class="text-xs text-slate-500 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-full">
+        {{ group.events|length }} event{{ 's' if group.events|length != 1 else '' }}
+      </span>
+      <i class="fas fa-chevron-down text-slate-500 text-xs ml-auto transition-transform duration-200"
+         :class="isFolderOpen('{{ group.folder_id }}') ? '' : '-rotate-90'"></i>
+    </button>
+
+    <div x-show="isFolderOpen('{{ group.folder_id }}')" x-transition class="space-y-3 pl-6">
+      {% for event in group.events %}
+        {% include "partials/event_card.html" %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- ── Ungrouped events ── -->
+  {% if ungrouped %}
+  <div class="mb-6">
+    {% if folder_groups %}
+    <div class="flex items-center gap-3 mb-3">
+      <span class="w-3 h-3 rounded-sm flex-shrink-0 bg-slate-600"></span>
+      <span class="text-sm font-semibold text-slate-400">Uncategorised</span>
+      <span class="text-xs text-slate-500 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-full">
+        {{ ungrouped|length }} event{{ 's' if ungrouped|length != 1 else '' }}
+      </span>
+    </div>
+    <div class="space-y-3 pl-6">
+    {% else %}
+    <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">All Events</h2>
+    <div class="space-y-3">
+    {% endif %}
+      {% for event in ungrouped %}
+        {% include "partials/event_card.html" %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}
+
+  <!-- ── Recently archived strip ── -->
+  {% if recently_archived %}
+  <div class="mt-8 pt-6 border-t border-slate-700/40">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+        <i class="fas fa-archive"></i> Recently Archived
+      </h2>
+      <a href="/archive" class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+        View all {{ archived_count }} <i class="fas fa-arrow-right ml-1 text-[10px]"></i>
+      </a>
+    </div>
+    <div class="space-y-2">
+      {% for ev in recently_archived %}
+      <div class="flex items-center gap-3 px-4 py-3 bg-slate-800/60 border border-slate-700/50 rounded-xl
+                  hover:border-slate-600 transition-colors opacity-75 hover:opacity-100">
+        <i class="fas fa-archive text-slate-600 text-sm flex-shrink-0"></i>
+        <div class="flex-1 min-w-0">
+          <span class="text-sm text-slate-300 font-medium truncate">{{ ev.name }}</span>
+          {% if ev.folder_name %}
+          <span class="ml-2 text-xs" style="color:{{ ev.folder_color }};">
+            <i class="fas fa-folder text-[10px] mr-0.5"></i>{{ ev.folder_name }}
+          </span>
+          {% endif %}
+          {% if ev.archived_at %}
+          <span class="ml-2 text-xs text-slate-600">
+            archived {{ ev.archived_at.strftime('%d %b') }}
+          </span>
+          {% endif %}
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+          <a href="/events/{{ ev.id }}" class="text-xs text-slate-500 hover:text-slate-300 transition-colors px-2 py-1">
+            <i class="fas fa-cog"></i>
+          </a>
+          <!-- single-quoted so JSON name doesn't break the attribute -->
+          <button @click='restoreEvent({{ ev.id }}, {{ ev.name | tojson }})'
+            class="text-xs text-slate-500 hover:text-emerald-400 transition-colors px-2 py-1"
+            title="Restore to dashboard">
+            <i class="fas fa-undo"></i> Restore
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function dashboard() {
+    return {
+      // Folder open/closed state — keyed by folder_id string.
+      // Undefined means open (default); false means collapsed.
+      openFolders: {},
+
+      isFolderOpen(folderId) {
+        return this.openFolders[folderId] !== false;
+      },
+
+      toggleFolder(folderId) {
+        this.openFolders[folderId] = !this.isFolderOpen(folderId);
+      },
+
+      toast(message, type = 'success') {
+        window.dispatchEvent(new CustomEvent('show-toast', { detail: { message, type } }));
+      },
+
+      async archiveEvent(eventId, eventName) {
+        if (!confirm(`Archive "${eventName}"?\n\nIt moves to the Archive and disappears from the dashboard. All data and reports are preserved.`)) return;
+        try {
+          const res  = await fetch(`/api/events/${eventId}/archive`, { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            this.toast(data.message);
+            setTimeout(() => window.location.reload(), 800);
+          } else {
+            this.toast(data.detail || 'Archive failed', 'error');
+          }
+        } catch (e) {
+          this.toast(e.message, 'error');
+        }
+      },
+
+      async restoreEvent(eventId, eventName) {
+        if (!confirm(`Restore "${eventName}" back to the dashboard?`)) return;
+        try {
+          const res  = await fetch(`/api/events/${eventId}/unarchive`, { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            this.toast(data.message);
+            setTimeout(() => window.location.reload(), 800);
+          } else {
+            this.toast(data.detail || 'Restore failed', 'error');
+          }
+        } catch (e) {
+          this.toast(e.message, 'error');
+        }
+      },
+    };
+  }
+</script>
+{% endblock %}
