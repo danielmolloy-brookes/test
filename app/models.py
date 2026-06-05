@@ -110,6 +110,12 @@ class Event(Base):
     # Profile sharing consent feature
     profiles_disabled          = Column(Boolean, default=False, nullable=False)
     profile_consent_enabled    = Column(Boolean, default=False, nullable=False)
+    # Event branding
+    brand_primary              = Column(String(7), default="#6366f1", nullable=False)
+    brand_secondary            = Column(String(7), default="#4f46e5", nullable=False)
+    brand_tertiary             = Column(String(7), default="#818cf8", nullable=False)
+    brand_backdrop_path        = Column(String(500), nullable=True)
+    brand_logo_path            = Column(String(500), nullable=True)
     created_at                 = Column(DateTime, default=datetime.utcnow)
 
     folder    = relationship("EventFolder", back_populates="events")

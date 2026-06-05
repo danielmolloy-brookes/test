@@ -70,6 +70,7 @@ app.add_middleware(
 # ── Static files ─────────────────────────────────────────────
 os.makedirs("static/qr_codes", exist_ok=True)
 os.makedirs("static/maps", exist_ok=True)
+os.makedirs("static/brand", exist_ok=True)
 os.makedirs(settings.QR_CODE_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

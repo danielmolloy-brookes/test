@@ -45,6 +45,7 @@ def init_db():
     _run_migrations()
     _run_mobile_migrations()
     _run_booking_migrations()
+    _run_branding_migrations()
     _run_consent_migrations()
     _run_totp_migrations()
 
@@ -413,6 +414,25 @@ def _run_booking_migrations():
             conn.execute(text("CREATE INDEX ix_slot_bookings_email     ON slot_bookings (email)"))
             conn.execute(text("CREATE INDEX ix_slot_bookings_ticket_id ON slot_bookings (ticket_id)"))
             conn.commit()
+
+
+def _run_branding_migrations():
+    """Event branding columns."""
+    from sqlalchemy import text, inspect
+    insp = inspect(engine)
+    with engine.connect() as conn:
+        event_cols = [c["name"] for c in insp.get_columns("events")]
+        for col, default in [
+            ("brand_primary",   "'#6366f1'"),
+            ("brand_secondary", "'#4f46e5'"),
+            ("brand_tertiary",  "'#818cf8'"),
+            ("brand_backdrop_path", "NULL"),
+            ("brand_logo_path",     "NULL"),
+        ]:
+            if col not in event_cols:
+                dtype = "VARCHAR(7)" if "path" not in col else "VARCHAR(500)"
+                conn.execute(text(f"ALTER TABLE events ADD COLUMN {col} {dtype} DEFAULT {default}"))
+                conn.commit()
 
 
 def _run_consent_migrations():
