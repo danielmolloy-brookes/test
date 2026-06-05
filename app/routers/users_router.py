@@ -181,6 +181,9 @@ async def change_role(
         raise HTTPException(status_code=403, detail="Not permitted")
 
     user.role = role
+    # Developers don't belong to an org
+    if role == "developer":
+        user.org_id = None
     db.commit()
     return {"ok": True}
 

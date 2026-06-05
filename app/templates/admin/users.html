@@ -135,10 +135,14 @@
             {% else %}
             <span class="badge-green text-xs"><i class="fas fa-qrcode mr-1"></i>Check-In</span>
             {% endif %}
-            {% if user and user.is_developer and u.org %}
-            <span class="text-xs text-slate-500">{{ u.org.name }}</span>
-            {% elif user and user.is_developer and not u.org %}
-            <span class="text-xs text-slate-600">No org</span>
+            {% if user and user.is_developer %}
+              {% if u.role == 'developer' %}
+              <span class="text-xs text-slate-600">No org</span>
+              {% elif u.org %}
+              <span class="text-xs text-slate-500">{{ u.org.name }}</span>
+              {% else %}
+              <span class="text-xs text-slate-600">No org</span>
+              {% endif %}
             {% endif %}
           </div>
 
