@@ -24,15 +24,15 @@ BRAND_DIR        = "static/brand"
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
-async def _read_upload(file: UploadFile, max_bytes: int = MAX_UPLOAD_BYTES) -> bytes:
+def _read_upload(file: UploadFile, max_bytes: int = MAX_UPLOAD_BYTES) -> bytes:
     """Read upload into memory and enforce a size cap."""
-    data = await file.read()
+    data = file.file.read()
     if len(data) > max_bytes:
         raise HTTPException(
             status_code=413,
             detail=f"File too large. Maximum allowed size is {max_bytes // (1024*1024)} MB.",
         )
-    # Reset so subsequent shutil.copyfileobj works with a BytesIO
+    # Reset so subsequent shutil.copyfileobj works from the beginning
     file.file = io.BytesIO(data)
     return data
 
@@ -72,7 +72,7 @@ def upload_event_map(
         raise HTTPException(403, "Not authorised")
     if file.content_type not in ALLOWED_MAP_TYPES:
         raise HTTPException(400, f"Unsupported file type: {file.content_type}")
-    await _read_upload(file)
+    _read_upload(file)
 
     os.makedirs(MAP_DIR, exist_ok=True)
     ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "png"
@@ -121,7 +121,7 @@ def upload_brand_backdrop(
         raise HTTPException(403, "Not authorised")
     if file.content_type not in ALLOWED_IMG_TYPES:
         raise HTTPException(400, f"Unsupported file type: {file.content_type}")
-    await _read_upload(file)
+    _read_upload(file)
     os.makedirs(BRAND_DIR, exist_ok=True)
     ext  = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "png"
     dest = os.path.join(BRAND_DIR, f"event_{event_id}_backdrop.{ext}")
@@ -162,7 +162,7 @@ def upload_brand_logo(
         raise HTTPException(403, "Not authorised")
     if file.content_type not in ALLOWED_IMG_TYPES:
         raise HTTPException(400, f"Unsupported file type: {file.content_type}")
-    await _read_upload(file)
+    _read_upload(file)
     os.makedirs(BRAND_DIR, exist_ok=True)
     ext  = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "png"
     dest = os.path.join(BRAND_DIR, f"event_{event_id}_logo.{ext}")
