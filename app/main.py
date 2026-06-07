@@ -71,9 +71,9 @@ async def add_security_headers(request: Request, call_next):
     # Allow CDN resources used in templates (Tailwind, Font Awesome, Alpine.js)
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; "
-        "font-src 'self' https://cdnjs.cloudflare.com; "
+        "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://unpkg.com; "
+        "font-src 'self' https://cdnjs.cloudflare.com https://unpkg.com; "
         "img-src 'self' data: blob:; "
         "connect-src 'self'; "
         "frame-ancestors 'none';"
