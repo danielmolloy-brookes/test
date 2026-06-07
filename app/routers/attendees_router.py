@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.auth import check_event_access, get_current_user_api, org_filter, require_admin, require_admin_api
 from app.database import SessionLocal, get_db
 from app.models import Attendee, Event, ImportJob, User
-from app.schemas import AttendeeCreate, AttendeeOut, GHLContact
+from app.schemas import AttendeeCreate, AttendeeOut, AttendeeUpdate, GHLContact
 from app.services import ghl_service
 
 logger = logging.getLogger(__name__)
@@ -162,18 +162,25 @@ async def add_attendee(
 @router.patch("/api/attendees/{attendee_id}", response_model=AttendeeOut)
 async def update_attendee(
     attendee_id: int,
-    payload: dict,
+    payload: AttendeeUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_api),
 ):
-    attendee = db.query(Attendee).filter(Attendee.id == attendee_id).first()
+    # Fetch attendee and verify it belongs to the user's organisation
+    attendee = (
+        db.query(Attendee)
+        .join(Event, Event.id == Attendee.event_id)
+        .filter(Attendee.id == attendee_id)
+        .filter(
+            (Event.org_id == current_user.org_id) | (current_user.role == "developer")
+        )
+        .first()
+    )
     if not attendee:
         raise HTTPException(status_code=404, detail="Attendee not found")
 
-    editable = ["first_name", "last_name", "email", "phone", "company", "notes", "is_vip"]
-    for field in editable:
-        if field in payload:
-            setattr(attendee, field, payload[field])
+    for field, value in payload.model_dump(exclude_none=True).items():
+        setattr(attendee, field, value)
 
     db.commit()
     db.refresh(attendee)
@@ -186,7 +193,16 @@ async def delete_attendee(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_api),
 ):
-    attendee = db.query(Attendee).filter(Attendee.id == attendee_id).first()
+    # Fetch attendee and verify it belongs to the user's organisation
+    attendee = (
+        db.query(Attendee)
+        .join(Event, Event.id == Attendee.event_id)
+        .filter(Attendee.id == attendee_id)
+        .filter(
+            (Event.org_id == current_user.org_id) | (current_user.role == "developer")
+        )
+        .first()
+    )
     if not attendee:
         raise HTTPException(status_code=404, detail="Attendee not found")
     db.delete(attendee)

@@ -93,6 +93,17 @@ class AttendeeCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class AttendeeUpdate(BaseModel):
+    """Validated payload for PATCH /api/attendees/{id}."""
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
+    notes: Optional[str] = None
+    is_vip: Optional[bool] = None
+
+
 class AttendeeOut(BaseModel):
     id: int
     event_id: int
