@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_password_hash, require_admin, require_admin_api, require_login
 from app.database import get_db
 from app.models import Event, EventPermission, Organisation, User
+from app.password_policy import validate_password
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -101,8 +102,9 @@ async def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_api),
 ):
-    if len(password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    policy_error = validate_password(password)
+    if policy_error:
+        raise HTTPException(status_code=400, detail=policy_error)
 
     # Determine allowed roles and org assignment
     if current_user.is_developer:
@@ -143,8 +145,9 @@ async def change_password(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_api),
 ):
-    if len(new_password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    policy_error = validate_password(new_password)
+    if policy_error:
+        raise HTTPException(status_code=400, detail=policy_error)
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

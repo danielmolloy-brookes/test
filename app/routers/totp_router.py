@@ -28,6 +28,7 @@ from app.auth import decode_token, decode_pending_token, create_access_token, ve
 from app.config import settings
 from app.database import get_db, SessionLocal
 from app.models import User
+from app.password_policy import validate_password
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -60,8 +61,9 @@ def change_password(
 
     if not verify_password(current, user.password_hash):
         raise HTTPException(400, "Current password is incorrect")
-    if len(new_pass) < 8:
-        raise HTTPException(400, "New password must be at least 8 characters")
+    policy_error = validate_password(new_pass)
+    if policy_error:
+        raise HTTPException(400, policy_error)
 
     user.password_hash = get_password_hash(new_pass)
     db.commit()
