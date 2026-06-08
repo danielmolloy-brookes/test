@@ -204,7 +204,7 @@ def twofa_verify(
     if pending_user and pending_user.id == user.id:
         token = create_access_token({"sub": user.username})
         resp  = JSONResponse({"status": "enabled", "backup_codes": plain_codes, "redirect": "/"})
-        resp.set_cookie("access_token", token, httponly=True, samesite="lax",
+        resp.set_cookie("access_token", token, httponly=True, samesite="lax", secure=True,
                         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
         resp.delete_cookie("pending_2fa")
         return resp
@@ -275,7 +275,7 @@ def twofa_validate(
 
     token = create_access_token({"sub": user.username})
     resp  = JSONResponse({"status": "ok"})
-    resp.set_cookie("access_token", token, httponly=True, samesite="lax",
+    resp.set_cookie("access_token", token, httponly=True, samesite="lax", secure=True,
                     max_age=60 * 60 * 24 * 30)
     resp.delete_cookie("pending_2fa")
     return resp

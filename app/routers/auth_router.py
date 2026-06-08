@@ -35,7 +35,7 @@ async def login_page(request: Request, db: Session = Depends(get_db)):
 
     csrf_token = get_csrf_token(request)
     resp = templates.TemplateResponse("login.html", {"request": request, "error": None, "csrf_token": csrf_token})
-    resp.set_cookie(CSRF_COOKIE, csrf_token, httponly=True, samesite="strict", max_age=3600)
+    resp.set_cookie(CSRF_COOKIE, csrf_token, httponly=True, samesite="strict", secure=True, max_age=3600)
     if token:
         resp.delete_cookie("access_token")
     return resp
@@ -60,13 +60,13 @@ async def login_submit(
             {"request": request, "error": "Invalid username or password", "csrf_token": new_csrf},
             status_code=401,
         )
-        resp.set_cookie(CSRF_COOKIE, new_csrf, httponly=True, samesite="strict", max_age=3600)
+        resp.set_cookie(CSRF_COOKIE, new_csrf, httponly=True, samesite="strict", secure=True, max_age=3600)
         return resp
 
     # Always issue a short-lived pending token — full token only granted after 2FA
     pending = create_pending_token(user.username)
     resp = RedirectResponse(url="/account/2fa-gate", status_code=303)
-    resp.set_cookie("pending_2fa", pending, httponly=True, samesite="lax", max_age=600)
+    resp.set_cookie("pending_2fa", pending, httponly=True, samesite="lax", secure=True, max_age=600)
     return resp
 
 
