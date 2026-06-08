@@ -71,12 +71,12 @@
       <!-- Header row: title + start/stop button -->
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-          <i class="fas fa-qrcode text-red-400"></i> QR Scanner
+          <i class="fas fa-qrcode text-indigo-400"></i> QR Scanner
         </h2>
         <button @click="toggleScanner()"
           :class="scannerActive
-            ? 'bg-red-600 hover:bg-red-700 text-white'
-            : 'bg-red-600 hover:bg-red-700 text-white'"
+            ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+            : 'bg-indigo-600 hover:bg-indigo-700 text-white'"
           class="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5">
           <i :class="scannerActive ? 'fas fa-stop' : 'fas fa-camera'"></i>
           <span x-text="scannerActive ? 'Stop' : 'Start Camera'"></span>
@@ -93,7 +93,7 @@
           x-model="selectedCamera"
           @change="onCameraChange()"
           class="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm
-                 focus:outline-none focus:border-red-500 cursor-pointer"
+                 focus:outline-none focus:border-indigo-500 cursor-pointer"
         >
           <template x-for="cam in cameras" :key="cam.id">
             <option :value="cam.id" x-text="cam.label || `Camera ${cam.id.substring(0,6)}`"></option>
@@ -106,7 +106,7 @@
 
       <!-- No cameras found warning -->
       <div x-show="cameraError" x-cloak
-        class="mb-3 p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-xs text-red-300 flex items-start gap-2">
+        class="mb-3 p-3 bg-indigo-900/30 border border-indigo-700/50 rounded-lg text-xs text-indigo-300 flex items-start gap-2">
         <i class="fas fa-exclamation-triangle mt-0.5 flex-shrink-0"></i>
         <span x-text="cameraError"></span>
       </div>
@@ -166,7 +166,7 @@
         :class="{
           'bg-emerald-900/50 border-emerald-600 text-emerald-100': lastResult?.status === 'checked_in',
           'bg-amber-900/50 border-amber-600 text-amber-100':       lastResult?.status === 'duplicate',
-          'bg-red-900/50   border-red-600   text-red-100':         lastResult?.status === 'not_found' || lastResult?.status === 'wrong_event'
+          'bg-indigo-900/50   border-indigo-600   text-red-100':         lastResult?.status === 'not_found' || lastResult?.status === 'wrong_event'
         }"
         class="mt-3 p-4 rounded-xl border"
         x-transition
@@ -175,7 +175,7 @@
           <i :class="{
             'fas fa-check-circle   text-emerald-400 text-xl': lastResult?.status === 'checked_in',
             'fas fa-exclamation-triangle text-amber-400 text-xl': lastResult?.status === 'duplicate',
-            'fas fa-times-circle   text-red-400    text-xl': lastResult?.status === 'not_found' || lastResult?.status === 'wrong_event'
+            'fas fa-times-circle   text-indigo-400    text-xl': lastResult?.status === 'not_found' || lastResult?.status === 'wrong_event'
           }"></i>
           <div>
             <p class="font-semibold text-sm" x-text="lastResult?.message"></p>
@@ -198,7 +198,7 @@
       <!-- Manual search -->
       <div class="card">
         <h2 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-          <i class="fas fa-search text-red-400"></i> Manual Search
+          <i class="fas fa-search text-indigo-400"></i> Manual Search
         </h2>
         <div class="flex gap-2">
           <input
@@ -249,7 +249,7 @@
       <div class="card">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-            <i class="fas fa-list-check text-red-400"></i> Recent Check-Ins
+            <i class="fas fa-list-check text-indigo-400"></i> Recent Check-Ins
           </h2>
           <span class="text-xs text-slate-500" x-text="`${recentCheckins.length} shown`"></span>
         </div>

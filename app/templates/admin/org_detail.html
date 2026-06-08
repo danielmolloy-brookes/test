@@ -25,7 +25,7 @@
     <!-- Create Org Admin -->
     <div class="card space-y-4">
       <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-        <i class="fas fa-user-shield text-red-400"></i> Add Organisation Admin
+        <i class="fas fa-user-shield text-indigo-400"></i> Add Organisation Admin
       </h2>
       <p class="text-xs text-slate-400">Creates a new admin user for this organisation.</p>
 
@@ -51,7 +51,7 @@
         <span x-text="creatingAdmin ? 'Creating…' : 'Create Admin'"></span>
       </button>
 
-      <div x-show="adminError" x-cloak class="p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-xs text-red-300" x-text="adminError"></div>
+      <div x-show="adminError" x-cloak class="p-3 bg-indigo-900/30 border border-indigo-700/50 rounded-lg text-xs text-indigo-300" x-text="adminError"></div>
       <div x-show="adminSuccess" x-cloak class="p-3 bg-emerald-900/30 border border-emerald-700/50 rounded-lg text-xs text-emerald-300" x-text="adminSuccess"></div>
     </div>
 
@@ -85,7 +85,7 @@
     <!-- Admin users -->
     <div class="card">
       <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-        <i class="fas fa-crown text-red-400"></i> Admin Users
+        <i class="fas fa-crown text-indigo-400"></i> Admin Users
         <span class="text-slate-500 font-normal" x-text="`(${admins.length})`"></span>
       </h2>
       <template x-if="admins.length === 0">
@@ -95,7 +95,7 @@
         <template x-for="u in admins" :key="u.id">
           <div class="flex items-center justify-between p-2 rounded-lg bg-slate-700/30">
             <div class="flex items-center gap-2">
-              <div class="w-7 h-7 bg-red-600 rounded-full flex items-center justify-center text-xs font-bold text-white"
+              <div class="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-xs font-bold text-white"
                 x-text="(u.display_name || u.username)[0].toUpperCase()"></div>
               <div>
                 <p class="text-white text-xs font-medium" x-text="u.display_name || u.username"></p>

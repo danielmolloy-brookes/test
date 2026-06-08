@@ -35,8 +35,8 @@
 
       <!-- Event header -->
       <div class="flex items-start gap-3 mb-4">
-        <div class="w-10 h-10 bg-red-900/50 rounded-xl flex items-center justify-center flex-shrink-0">
-          <i class="fas fa-calendar-alt text-red-400"></i>
+        <div class="w-10 h-10 bg-indigo-900/50 rounded-xl flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-calendar-alt text-indigo-400"></i>
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-base font-semibold text-white leading-tight">{{ event.name }}</p>
@@ -52,9 +52,9 @@
       <!-- Scanner buttons -->
       <div class="grid grid-cols-3 gap-2">
         <a href="/checkin/{{ event.id }}"
-          class="flex flex-col items-center gap-2 p-3 rounded-xl bg-red-900/30 border border-red-700/50 hover:bg-red-700/40 hover:border-red-500 transition-all text-center group">
-          <i class="fas fa-qrcode text-red-400 text-xl group-hover:text-red-300"></i>
-          <span class="text-xs font-medium text-red-300 group-hover:text-red-200 leading-tight">Check-In<br>Scanner</span>
+          class="flex flex-col items-center gap-2 p-3 rounded-xl bg-indigo-900/30 border border-indigo-700/50 hover:bg-indigo-700/40 hover:border-indigo-500 transition-all text-center group">
+          <i class="fas fa-qrcode text-indigo-400 text-xl group-hover:text-indigo-300"></i>
+          <span class="text-xs font-medium text-indigo-300 group-hover:text-red-200 leading-tight">Check-In<br>Scanner</span>
         </a>
         <a href="/checkout/{{ event.id }}"
           class="flex flex-col items-center gap-2 p-3 rounded-xl bg-amber-900/20 border border-amber-700/40 hover:bg-amber-700/30 hover:border-amber-500 transition-all text-center group">

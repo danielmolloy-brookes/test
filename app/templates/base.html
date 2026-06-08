@@ -14,13 +14,13 @@
   <style type="text/tailwindcss">
     [x-cloak] { display: none !important; }
     .sidebar-link { @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-150 text-sm font-medium; }
-    .sidebar-link.active { @apply bg-red-600 text-white; }
-    .btn-primary { @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors; }
+    .sidebar-link.active { @apply bg-indigo-600 text-white; }
+    .btn-primary { @apply inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors; }
     .btn-secondary { @apply inline-flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-lg transition-colors; }
     .btn-success { @apply inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors; }
     .btn-danger { @apply inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors; }
     .card { @apply bg-slate-800 border border-slate-700 rounded-xl p-6; }
-    .input { @apply w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm; }
+    .input { @apply w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm; }
     .label { @apply block text-sm font-medium text-slate-300 mb-1; }
     .badge-green { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-900/50 text-emerald-300 border border-emerald-700; }
     .badge-yellow { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-900/50 text-amber-300 border border-amber-700; }
@@ -206,22 +206,22 @@
     <div class="px-3 py-4 border-t border-slate-700/50 space-y-2">
       <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800">
         <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
-          {% if user and user.is_developer %}bg-red-800{% elif user and user.is_org_admin %}bg-red-600{% else %}bg-emerald-700{% endif %}">
+          {% if user and user.is_developer %}bg-indigo-800{% elif user and user.is_org_admin %}bg-indigo-600{% else %}bg-emerald-700{% endif %}">
           {{ (user.display_name or user.username)[0].upper() if user else 'A' }}
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-xs text-white truncate">{{ user.display_name or user.username if user else 'Admin' }}</p>
-          <p class="text-xs {% if user and user.is_developer %}text-red-300{% elif user and user.is_org_admin %}text-red-400{% else %}text-emerald-400{% endif %}">
+          <p class="text-xs {% if user and user.is_developer %}text-indigo-300{% elif user and user.is_org_admin %}text-indigo-400{% else %}text-emerald-400{% endif %}">
             {% if user and user.is_developer %}<i class="fas fa-code mr-1"></i>Developer
             {% elif user and user.is_org_admin %}<i class="fas fa-crown mr-1"></i>Admin
             {% elif user %}<i class="fas fa-qrcode mr-1"></i>Check-In
             {% endif %}
           </p>
         </div>
-        <a href="/account/password" class="text-slate-500 hover:text-red-400 text-xs transition-colors" title="Change password">
+        <a href="/account/password" class="text-slate-500 hover:text-indigo-400 text-xs transition-colors" title="Change password">
           <i class="fas fa-key"></i>
         </a>
-        <a href="/logout" class="text-slate-500 hover:text-red-400 text-xs transition-colors" title="Logout">
+        <a href="/logout" class="text-slate-500 hover:text-indigo-400 text-xs transition-colors" title="Logout">
           <i class="fas fa-sign-out-alt"></i>
         </a>
       </div>
@@ -260,7 +260,7 @@
 
 <!-- Toast notification -->
 <div x-show="toast.show" x-cloak x-transition.duration.300ms
-  :class="toast.type === 'success' ? 'bg-emerald-800 text-emerald-100 border border-emerald-600' : toast.type === 'error' ? 'bg-red-800 text-red-100 border border-red-600' : 'bg-red-800 text-red-100 border border-red-600'"
+  :class="toast.type === 'success' ? 'bg-emerald-800 text-emerald-100 border border-emerald-600' : toast.type === 'error' ? 'bg-indigo-800 text-red-100 border border-indigo-600' : 'bg-indigo-800 text-red-100 border border-indigo-600'"
   class="toast">
   <i :class="toast.type === 'success' ? 'fas fa-check-circle' : toast.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-info-circle'"></i>
   <span x-text="toast.message"></span>

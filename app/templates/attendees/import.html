@@ -30,17 +30,17 @@
   <!-- Import tabs -->
   <div class="flex gap-1 mb-6 bg-slate-800 border border-slate-700 rounded-xl p-1 max-w-sm">
     <button @click="tab='ghl'"
-      :class="tab === 'ghl' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+      :class="tab === 'ghl' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
       class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all">
       <i class="fas fa-link mr-1.5"></i> From GHL
     </button>
     <button @click="tab='csv'"
-      :class="tab === 'csv' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+      :class="tab === 'csv' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
       class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all">
       <i class="fas fa-file-csv mr-1.5"></i> Upload CSV
     </button>
     <button @click="tab='manual'"
-      :class="tab === 'manual' ? 'bg-red-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+      :class="tab === 'manual' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
       class="flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all">
       <i class="fas fa-user-plus mr-1.5"></i> Manual
     </button>
@@ -54,7 +54,7 @@
       <!-- GHL import -->
       <div x-show="tab === 'ghl'" class="card space-y-4">
         <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-          <i class="fas fa-link text-red-400"></i> Import from GoHighLevel
+          <i class="fas fa-link text-indigo-400"></i> Import from GoHighLevel
         </h2>
         <p class="text-xs text-slate-400">Search by tag to pick contacts, or skip preview to import all matching contacts in the background (up to 5,000).</p>
 
@@ -80,7 +80,7 @@
                 :checked="allSelected"
                 @change="toggleAll($event.target.checked)"
                 x-effect="$el.indeterminate = selectedIds.length > 0 && !allSelected"
-                class="accent-red-500" />
+                class="accent-indigo-500" />
               <span class="text-xs text-slate-300 font-medium">
                 <span x-text="selectedIds.length"></span> / <span x-text="previewContacts.length"></span> selected
               </span>
@@ -97,7 +97,7 @@
                 <input type="checkbox"
                   :checked="selectedIds.includes(c.id)"
                   @change="toggleContact(c.id, $event.target.checked)"
-                  class="accent-red-500 flex-shrink-0" />
+                  class="accent-indigo-500 flex-shrink-0" />
                 <div class="min-w-0">
                   <p class="text-xs text-white truncate"
                     x-text="[c.first_name, c.last_name].filter(Boolean).join(' ') || '(no name)'"></p>
@@ -140,7 +140,7 @@
             <span x-text="`${importJob?.added ?? 0} added · ${importJob?.skipped ?? 0} skipped`"></span>
           </div>
           <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
-            <div class="h-full bg-red-500 rounded-full transition-all duration-500"
+            <div class="h-full bg-indigo-500 rounded-full transition-all duration-500"
               :style="`width: ${importJob?.status === 'done' ? 100 : importJob?.fetched ? Math.min((importJob.fetched / Math.max(importJob.total || importJob.fetched, 1)) * 100, 95) : 5}%`">
             </div>
           </div>
@@ -158,18 +158,18 @@
           </template>
         </div>
 
-        <div x-show="ghlError" x-cloak class="p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-xs text-red-300" x-text="ghlError"></div>
+        <div x-show="ghlError" x-cloak class="p-3 bg-indigo-900/30 border border-indigo-700/50 rounded-lg text-xs text-indigo-300" x-text="ghlError"></div>
       </div>
 
       <!-- CSV import -->
       <div x-show="tab === 'csv'" class="card space-y-4">
         <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-          <i class="fas fa-file-csv text-red-400"></i> Upload CSV File
+          <i class="fas fa-file-csv text-indigo-400"></i> Upload CSV File
         </h2>
         <p class="text-xs text-slate-400">CSV must have an <code class="bg-slate-700 px-1 rounded">email</code> column. Optional: <code class="bg-slate-700 px-1 rounded">first_name</code>, <code class="bg-slate-700 px-1 rounded">last_name</code>, <code class="bg-slate-700 px-1 rounded">phone</code>.</p>
 
         <div
-          class="border-2 border-dashed border-slate-600 hover:border-red-500 rounded-xl p-6 text-center cursor-pointer transition-colors"
+          class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-6 text-center cursor-pointer transition-colors"
           @click="$refs.csvInput.click()"
           @dragover.prevent
           @drop.prevent="handleDrop($event)"
@@ -190,7 +190,7 @@
       <!-- Manual add -->
       <div x-show="tab === 'manual'" class="card space-y-4">
         <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-          <i class="fas fa-user-plus text-red-400"></i> Add Manually
+          <i class="fas fa-user-plus text-indigo-400"></i> Add Manually
         </h2>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -203,7 +203,7 @@
           </div>
         </div>
         <div>
-          <label class="label">Email <span class="text-red-400">*</span></label>
+          <label class="label">Email <span class="text-indigo-400">*</span></label>
           <input type="email" x-model="manual.email" class="input" placeholder="jane@example.com" />
         </div>
         <div>
@@ -240,7 +240,7 @@
 
       <!-- Result message -->
       <div x-show="resultMsg" x-cloak
-        :class="resultType === 'success' ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300' : 'bg-red-900/30 border-red-700/50 text-red-300'"
+        :class="resultType === 'success' ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300' : 'bg-indigo-900/30 border-indigo-700/50 text-indigo-300'"
         class="p-3 border rounded-lg text-xs"
         x-text="resultMsg">
       </div>
@@ -303,7 +303,7 @@
                 </td>
                 <td class="py-2.5 text-right">
                   <button @click="removeAttendee(a.id)"
-                    class="text-slate-600 hover:text-red-400 transition-colors p-1">
+                    class="text-slate-600 hover:text-indigo-400 transition-colors p-1">
                     <i class="fas fa-trash text-xs"></i>
                   </button>
                 </td>

@@ -20,7 +20,7 @@
     <div class="lg:col-span-1">
       <div class="card space-y-4">
         <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-          <i class="fas fa-plus-circle text-red-400"></i> New Organisation
+          <i class="fas fa-plus-circle text-indigo-400"></i> New Organisation
         </h2>
 
         <div>
@@ -42,7 +42,7 @@
           <span x-text="creating ? 'Creating…' : 'Create Organisation'"></span>
         </button>
 
-        <div x-show="error" x-cloak class="p-3 bg-red-900/30 border border-red-700/50 rounded-lg text-xs text-red-300" x-text="error"></div>
+        <div x-show="error" x-cloak class="p-3 bg-indigo-900/30 border border-indigo-700/50 rounded-lg text-xs text-indigo-300" x-text="error"></div>
         <div x-show="success" x-cloak class="p-3 bg-emerald-900/30 border border-emerald-700/50 rounded-lg text-xs text-emerald-300" x-text="success"></div>
       </div>
     </div>
@@ -66,7 +66,7 @@
                   <code class="text-xs text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded font-mono" x-text="org.slug"></code>
                 </div>
                 <div class="flex gap-4 text-xs text-slate-400 mt-2">
-                  <span><i class="fas fa-user-shield mr-1 text-red-400"></i><span x-text="org.admin_count"></span> admin(s)</span>
+                  <span><i class="fas fa-user-shield mr-1 text-indigo-400"></i><span x-text="org.admin_count"></span> admin(s)</span>
                   <span><i class="fas fa-qrcode mr-1 text-emerald-400"></i><span x-text="org.checkin_count"></span> check-in user(s)</span>
                   <span><i class="fas fa-calendar-alt mr-1 text-amber-400"></i><span x-text="org.event_count"></span> event(s)</span>
                 </div>
@@ -75,7 +75,7 @@
                 <a :href="`/admin/organisations/${org.id}`" class="btn-secondary text-xs py-1.5 px-3">
                   <i class="fas fa-cog"></i> Manage
                 </a>
-                <button @click="deleteOrg(org)" class="text-slate-600 hover:text-red-400 transition-colors p-1.5">
+                <button @click="deleteOrg(org)" class="text-slate-600 hover:text-indigo-400 transition-colors p-1.5">
                   <i class="fas fa-trash text-xs"></i>
                 </button>
               </div>

@@ -41,38 +41,38 @@
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">First name</label>
           <input x-model="editForm.first_name" type="text"
-            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500"/>
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"/>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Last name</label>
           <input x-model="editForm.last_name" type="text"
-            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500"/>
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"/>
         </div>
       </div>
 
       <div>
         <label class="block text-xs font-medium text-slate-400 mb-1">Email</label>
         <input x-model="editForm.email" type="email"
-          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500"/>
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"/>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Phone</label>
           <input x-model="editForm.phone" type="tel"
-            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500"/>
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"/>
         </div>
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">Company</label>
           <input x-model="editForm.company" type="text"
-            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500"/>
+            class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"/>
         </div>
       </div>
 
       <div>
         <label class="block text-xs font-medium text-slate-400 mb-1">Notes</label>
         <textarea x-model="editForm.notes" rows="2"
-          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500 resize-none"></textarea>
+          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 resize-none"></textarea>
       </div>
 
       <label class="flex items-center gap-2 cursor-pointer">
@@ -81,7 +81,7 @@
         <span class="text-sm text-slate-300"><i class="fas fa-crown text-yellow-400 mr-1"></i>VIP attendee</span>
       </label>
 
-      <div x-show="editError" class="text-red-400 text-sm" x-text="editError"></div>
+      <div x-show="editError" class="text-indigo-400 text-sm" x-text="editError"></div>
 
       <div class="flex gap-2 pt-1">
         <button @click="editOpen=false"
@@ -89,7 +89,7 @@
           Cancel
         </button>
         <button @click="saveEdit()" :disabled="editSaving"
-          class="flex-1 bg-red-600 hover:bg-red-700 transition rounded-xl py-2.5 text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
+          class="flex-1 bg-indigo-600 hover:bg-indigo-700 transition rounded-xl py-2.5 text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
           <span x-show="editSaving" class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
           <span x-text="editSaving ? 'Saving…' : 'Save changes'"></span>
         </button>
@@ -151,7 +151,7 @@
   <div x-show="!loading && filtered.length > 0" x-cloak
     class="text-xs text-slate-500 mb-3 flex items-center justify-between">
     <span x-text="`Showing ${filtered.length} of ${attendees.length} attendees`"></span>
-    <span x-show="search" class="text-red-400">
+    <span x-show="search" class="text-indigo-400">
       <i class="fas fa-filter mr-1"></i>Filtered by: "<span x-text="search"></span>"
     </span>
   </div>
@@ -168,7 +168,7 @@
           :class="{
             'bg-yellow-700 text-yellow-100':   a.is_vip,
             'bg-amber-800 text-amber-100':      a.checked_out,
-            'bg-red-800 text-red-100':    a.badge_issued && !a.checked_out,
+            'bg-indigo-800 text-red-100':    a.badge_issued && !a.checked_out,
             'bg-emerald-800 text-emerald-100':  a.checked_in && !a.badge_issued && !a.checked_out,
             'bg-slate-700 text-slate-300':      !a.checked_in,
           }"
@@ -206,7 +206,7 @@
           </span>
           <!-- Badge issued -->
           <span x-show="a.badge_issued"
-            class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-900/50 text-red-300 border border-red-700/50">
+            class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-indigo-900/50 text-indigo-300 border border-indigo-700/50">
             <i class="fas fa-id-badge text-xs"></i> Badge
           </span>
           <!-- Checked out -->
@@ -222,7 +222,7 @@
           <span class="w-2.5 h-2.5 rounded-full block"
             :class="{
               'bg-amber-400':  a.checked_out,
-              'bg-red-400': a.badge_issued && !a.checked_out,
+              'bg-indigo-400': a.badge_issued && !a.checked_out,
               'bg-emerald-400': a.checked_in && !a.badge_issued && !a.checked_out,
               'bg-slate-500':  !a.checked_in,
             }"></span>
@@ -231,7 +231,7 @@
         <!-- Profile consent toggle (only shown if feature enabled) -->
         {% if event.profile_consent_enabled %}
         <button @click.stop="toggleConsent(a)"
-          :class="a.profile_consent ? 'text-red-400 bg-red-900/30' : 'text-slate-500 hover:text-red-400 hover:bg-slate-700'"
+          :class="a.profile_consent ? 'text-indigo-400 bg-indigo-900/30' : 'text-slate-500 hover:text-indigo-400 hover:bg-slate-700'"
           class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition"
           :title="a.profile_consent ? 'Profile shared — click to withdraw consent' : 'Click to grant profile sharing consent'">
           <i class="fas fa-user-check text-xs"></i>
@@ -240,7 +240,7 @@
 
         <!-- Edit button -->
         <button @click.stop="openEdit(a)"
-          class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-700 transition"
+          class="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-indigo-400 hover:bg-slate-700 transition"
           title="Edit attendee">
           <i class="fas fa-pencil-alt text-xs"></i>
         </button>
@@ -315,8 +315,8 @@ function guestListApp(eventId) {
         key: 'all',
         label: 'All',
         icon: 'fas fa-users',
-        activeClass: 'bg-red-900/50 border-red-600 text-red-300',
-        badgeActive: 'bg-red-700 text-white',
+        activeClass: 'bg-indigo-900/50 border-indigo-600 text-indigo-300',
+        badgeActive: 'bg-indigo-700 text-white',
       },
       {
         key: 'registered',
@@ -336,8 +336,8 @@ function guestListApp(eventId) {
         key: 'badge_issued',
         label: 'Badge Issued',
         icon: 'fas fa-id-badge',
-        activeClass: 'bg-red-900/50 border-red-500 text-red-300',
-        badgeActive: 'bg-red-600 text-white',
+        activeClass: 'bg-indigo-900/50 border-indigo-500 text-indigo-300',
+        badgeActive: 'bg-indigo-600 text-white',
       },
       {
         key: 'checked_out',
