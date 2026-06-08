@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/png" href="/static/Favicon.png" />
   <title>{% block title %}One Thousand Trades Group{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/static/vendor/alpinejs.min.js" defer></script>
   <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css" />
@@ -32,6 +35,9 @@
         extend: {
           colors: {
             slate: { 850: '#172033' }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
           }
         }
       }
