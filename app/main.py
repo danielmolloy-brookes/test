@@ -65,12 +65,14 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=()"
-    # Allow CDN resources used in templates (Tailwind, Font Awesome, Alpine.js)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # Alpine.js (self-hosted) still requires unsafe-inline/unsafe-eval for expression evaluation.
+    # Tailwind play CDN requires unsafe-inline for styles; all other resources are now self-hosted.
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
-        "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://unpkg.com; "
-        "font-src 'self' https://cdnjs.cloudflare.com https://unpkg.com; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "
+        "font-src 'self'; "
         "img-src 'self' data: blob:; "
         "connect-src 'self'; "
         "form-action 'self'; "
