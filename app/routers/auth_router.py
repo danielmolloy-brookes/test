@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import create_access_token, create_pending_token, decode_token, revoke_token, verify_password
 from app.config import settings
+from app.csrf import COOKIE_NAME as CSRF_COOKIE, get_csrf_token, validate_csrf
 from app.database import get_db
 from app.limiter import limiter
 from app.models import User
@@ -31,10 +32,13 @@ async def login_page(request: Request, db: Session = Depends(get_db)):
                 else:
                     return RedirectResponse(url="/checkin-home", status_code=303)
         # Token present but invalid/expired — clear it and show login form
-        resp = templates.TemplateResponse("login.html", {"request": request, "error": None})
+
+    csrf_token = get_csrf_token(request)
+    resp = templates.TemplateResponse("login.html", {"request": request, "error": None, "csrf_token": csrf_token})
+    resp.set_cookie(CSRF_COOKIE, csrf_token, httponly=True, samesite="strict", max_age=3600)
+    if token:
         resp.delete_cookie("access_token")
-        return resp
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return resp
 
 
 @router.post("/login", response_class=HTMLResponse)
@@ -44,15 +48,20 @@ async def login_submit(
     response: Response,
     username: str = Form(...),
     password: str = Form(...),
+    csrf_token: str = Form(None),
     db: Session = Depends(get_db),
 ):
+    validate_csrf(request, csrf_token)
     user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(password, user.password_hash):
-        return templates.TemplateResponse(
+        new_csrf = get_csrf_token(request)
+        resp = templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "Invalid username or password"},
+            {"request": request, "error": "Invalid username or password", "csrf_token": new_csrf},
             status_code=401,
         )
+        resp.set_cookie(CSRF_COOKIE, new_csrf, httponly=True, samesite="strict", max_age=3600)
+        return resp
 
     # Always issue a short-lived pending token — full token only granted after 2FA
     pending = create_pending_token(user.username)

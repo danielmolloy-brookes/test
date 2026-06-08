@@ -73,6 +73,7 @@ async def add_security_headers(request: Request, call_next):
         "font-src 'self' https://cdnjs.cloudflare.com https://unpkg.com; "
         "img-src 'self' data: blob:; "
         "connect-src 'self'; "
+        "form-action 'self'; "
         "frame-ancestors 'none';"
     )
     return response
