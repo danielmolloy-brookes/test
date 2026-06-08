@@ -44,8 +44,8 @@ logger = logging.getLogger(__name__)
 
 # ── FastAPI app ──────────────────────────────────────────────
 app = FastAPI(
-    title="Smart Event Check-In",
-    description="Internal event check-in system with GoHighLevel integration",
+    title="One Thousand Trades Group — Event Check-In",
+    description="Event check-in system powered by One Thousand Trades Group",
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
