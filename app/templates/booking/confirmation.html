@@ -34,12 +34,12 @@
     <div class="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
 
       <!-- Slot time banner -->
-      <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 px-6 py-5 text-center">
-        <p class="text-indigo-200 text-xs font-semibold uppercase tracking-wider mb-1">Your slot</p>
+      <div class="bg-gradient-to-br from-red-600 to-red-800 px-6 py-5 text-center">
+        <p class="text-red-200 text-xs font-semibold uppercase tracking-wider mb-1">Your slot</p>
         <p class="text-2xl font-bold">
           {{ slot.start_time.strftime('%H:%M') }} – {{ slot.end_time.strftime('%H:%M') }}
         </p>
-        <p class="text-indigo-200 text-sm mt-0.5">
+        <p class="text-red-200 text-sm mt-0.5">
           {{ slot.start_time.strftime('%A, %-d %B %Y') }}
         </p>
       </div>
@@ -48,7 +48,7 @@
       <div class="px-6 py-5 space-y-3 border-b border-slate-700">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
-            <i class="fas fa-user text-indigo-400 text-xs"></i>
+            <i class="fas fa-user text-red-400 text-xs"></i>
           </div>
           <div>
             <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Name</p>
@@ -59,7 +59,7 @@
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
             <a href="mailto:{{ booking.email }}">
-              <i class="fas fa-envelope text-indigo-400 text-xs"></i>
+              <i class="fas fa-envelope text-red-400 text-xs"></i>
             </a>
           </div>
           <div>
@@ -71,7 +71,7 @@
         {% if event.location %}
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
-            <i class="fas fa-map-marker-alt text-indigo-400 text-xs"></i>
+            <i class="fas fa-map-marker-alt text-red-400 text-xs"></i>
           </div>
           <div>
             <p class="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Location</p>

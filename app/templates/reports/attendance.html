@@ -43,8 +43,8 @@
     <!-- Attendance Rate -->
     <div class="col-span-2 sm:col-span-1 bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4 flex items-center gap-3">
       <!-- Icon only shown on mobile where card is full-width -->
-      <div class="sm:hidden w-10 h-10 bg-indigo-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
-        <i class="fas fa-percentage text-indigo-400 text-lg"></i>
+      <div class="sm:hidden w-10 h-10 bg-red-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-percentage text-red-400 text-lg"></i>
       </div>
       <div class="min-w-0">
         <p class="text-3xl sm:text-2xl font-bold truncate
@@ -72,7 +72,7 @@
 
     <!-- Badges Issued -->
     <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 sm:p-4">
-      <p class="text-2xl font-bold text-indigo-400">{{ badge_issued }}</p>
+      <p class="text-2xl font-bold text-red-400">{{ badge_issued }}</p>
       <p class="text-xs text-slate-400 mt-0.5">
         <span class="sm:hidden">Badges Issued</span>
         <span class="hidden sm:inline">Badges</span>
@@ -94,12 +94,12 @@
   {% if avg_badge_mins is not none or avg_checkout_mins is not none %}
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
     {% if avg_badge_mins is not none %}
-    <div class="bg-indigo-900/20 border border-indigo-700/40 rounded-xl p-4 flex items-center gap-3">
-      <div class="w-9 h-9 bg-indigo-900/60 rounded-lg flex items-center justify-center flex-shrink-0">
-        <i class="fas fa-stopwatch text-indigo-400"></i>
+    <div class="bg-red-900/20 border border-red-700/40 rounded-xl p-4 flex items-center gap-3">
+      <div class="w-9 h-9 bg-red-900/60 rounded-lg flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-stopwatch text-red-400"></i>
       </div>
       <div>
-        <p class="text-lg font-bold text-indigo-300">{{ avg_badge_fmt }}</p>
+        <p class="text-lg font-bold text-red-300">{{ avg_badge_fmt }}</p>
         <p class="text-xs text-slate-400">Avg. Check-In → Badge Issued <span class="text-slate-600">({{ badge_issued }} issued)</span></p>
       </div>
     </div>
@@ -160,7 +160,7 @@
             class="flex-shrink-0 px-2.5 py-1 rounded-md transition-colors whitespace-nowrap">
             <i class="fas fa-check text-xs mr-1"></i>In ({{ checked_in }})</button>
           <button @click="filter='badge_issued'"
-            :class="filter === 'badge_issued' ? 'bg-indigo-700 text-white' : 'text-slate-400 hover:text-white'"
+            :class="filter === 'badge_issued' ? 'bg-red-700 text-white' : 'text-slate-400 hover:text-white'"
             class="flex-shrink-0 px-2.5 py-1 rounded-md transition-colors whitespace-nowrap">
             <i class="fas fa-id-badge text-xs mr-1"></i>Badge ({{ badge_issued }})</button>
           <button @click="filter='checked_out'"
@@ -189,10 +189,10 @@
               <span class="flex items-center gap-1"><i class="fas fa-sign-in-alt text-emerald-500"></i> Check-In</span>
             </th>
             <th class="text-left py-2 pr-3">
-              <span class="flex items-center gap-1"><i class="fas fa-id-badge text-indigo-400"></i> Badge</span>
+              <span class="flex items-center gap-1"><i class="fas fa-id-badge text-red-400"></i> Badge</span>
             </th>
             <th class="text-left py-2 pr-3">
-              <span class="flex items-center gap-1 text-indigo-500"><i class="fas fa-stopwatch"></i> →Badge</span>
+              <span class="flex items-center gap-1 text-red-500"><i class="fas fa-stopwatch"></i> →Badge</span>
             </th>
             <th class="text-left py-2 pr-3">
               <span class="flex items-center gap-1"><i class="fas fa-sign-out-alt text-amber-400"></i> Check-Out</span>
@@ -235,7 +235,7 @@
                   <i class="fas fa-sign-out-alt"></i> Out
                 </span>
               {% elif a.badge_issued %}
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-900/40 text-indigo-300 border border-indigo-700/40 whitespace-nowrap">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-900/40 text-red-300 border border-red-700/40 whitespace-nowrap">
                   <i class="fas fa-id-badge"></i> Badged
                 </span>
               {% elif a.checked_in %}
@@ -255,14 +255,14 @@
             </td>
 
             <!-- Badge time -->
-            <td class="py-2.5 pr-3 text-indigo-400 font-mono whitespace-nowrap">
+            <td class="py-2.5 pr-3 text-red-400 font-mono whitespace-nowrap">
               {{ a.badge_issued_fmt if a.badge_issued else "—" }}
             </td>
 
             <!-- Check-in → Badge delta -->
             <td class="py-2.5 pr-3 whitespace-nowrap">
               {% if a.checkin_to_badge_fmt != "—" %}
-              <span class="text-indigo-500 font-medium">{{ a.checkin_to_badge_fmt }}</span>
+              <span class="text-red-500 font-medium">{{ a.checkin_to_badge_fmt }}</span>
               {% else %}
               <span class="text-slate-700">—</span>
               {% endif %}
@@ -285,7 +285,7 @@
             <!-- GHL -->
             <td class="py-2.5">
               {% if a.ghl_contact_id %}
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-900/30 text-indigo-400 border border-indigo-800/50 font-mono whitespace-nowrap">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-900/30 text-red-400 border border-red-800/50 font-mono whitespace-nowrap">
                 <i class="fas fa-link text-xs"></i>{{ a.ghl_contact_id[:8] }}…
               </span>
               {% else %}

@@ -19,10 +19,10 @@
 <body class="min-h-screen bg-slate-900 text-white">
 
   <!-- Header -->
-  <div class="bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-900 border-b border-slate-800">
+  <div class="bg-gradient-to-br from-red-900 via-slate-900 to-slate-900 border-b border-slate-800">
     <div class="max-w-2xl mx-auto px-5 py-10 text-center">
-      <div class="w-16 h-16 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center mx-auto mb-5">
-        <span class="text-2xl font-black text-indigo-300">{{ org.name[0] | upper }}</span>
+      <div class="w-16 h-16 rounded-2xl bg-red-600/30 border border-red-500/40 flex items-center justify-center mx-auto mb-5">
+        <span class="text-2xl font-black text-red-300">{{ org.name[0] | upper }}</span>
       </div>
       <h1 class="text-3xl font-extrabold tracking-tight">{{ org.name }}</h1>
       <p class="text-slate-400 mt-2 text-sm">Events</p>
@@ -52,33 +52,33 @@
       <{{ tag }}
         {% if event.booking_url %}href="{{ event.booking_url }}"{% endif %}
         class="fade-up block bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden
-               {% if event.booking_url %}hover:border-indigo-500/60 hover:bg-slate-800/80 cursor-pointer group{% endif %}
+               {% if event.booking_url %}hover:border-red-500/60 hover:bg-slate-800/80 cursor-pointer group{% endif %}
                transition-all shadow-lg">
         <div class="p-5 flex gap-4">
           <!-- Date block -->
-          <div class="shrink-0 w-14 h-14 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex flex-col items-center justify-center">
-            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider leading-none">{{ event.date.strftime('%b') }}</span>
+          <div class="shrink-0 w-14 h-14 rounded-xl bg-red-600/20 border border-red-500/30 flex flex-col items-center justify-center">
+            <span class="text-xs font-bold text-red-400 uppercase tracking-wider leading-none">{{ event.date.strftime('%b') }}</span>
             <span class="text-2xl font-black text-white leading-none mt-0.5">{{ event.date.strftime('%-d') }}</span>
           </div>
           <!-- Info -->
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-2">
-              <h3 class="font-semibold text-base leading-snug {% if event.booking_url %}group-hover:text-indigo-300{% endif %} transition truncate">{{ event.name }}</h3>
+              <h3 class="font-semibold text-base leading-snug {% if event.booking_url %}group-hover:text-red-300{% endif %} transition truncate">{{ event.name }}</h3>
               {% if event.booking_enabled %}
               <span class="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-900/60 border border-emerald-600/40 text-emerald-400">Book now</span>
               {% endif %}
             </div>
             <div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-              <span><i class="fas fa-clock mr-1 text-indigo-400/70"></i>{{ event.date.strftime('%H:%M') }}</span>
-              {% if event.location %}<span class="truncate"><i class="fas fa-map-marker-alt mr-1 text-indigo-400/70"></i>{{ event.location }}</span>{% endif %}
-              {% if event.booking_enabled %}<span><i class="fas fa-hourglass-half mr-1 text-indigo-400/70"></i>{{ event.slot_duration_mins }}-min slots</span>{% endif %}
+              <span><i class="fas fa-clock mr-1 text-red-400/70"></i>{{ event.date.strftime('%H:%M') }}</span>
+              {% if event.location %}<span class="truncate"><i class="fas fa-map-marker-alt mr-1 text-red-400/70"></i>{{ event.location }}</span>{% endif %}
+              {% if event.booking_enabled %}<span><i class="fas fa-hourglass-half mr-1 text-red-400/70"></i>{{ event.slot_duration_mins }}-min slots</span>{% endif %}
             </div>
             {% if event.description %}
             <p class="mt-2 text-xs text-slate-500 line-clamp-2 leading-relaxed">{{ event.description }}</p>
             {% endif %}
           </div>
           {% if event.booking_url %}
-          <div class="shrink-0 flex items-center self-center text-slate-600 group-hover:text-indigo-400 transition">
+          <div class="shrink-0 flex items-center self-center text-slate-600 group-hover:text-red-400 transition">
             <i class="fas fa-chevron-right text-sm"></i>
           </div>
           {% endif %}

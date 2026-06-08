@@ -30,8 +30,8 @@
   <!-- Event header -->
   <div class="card mb-6">
     <div class="flex flex-col sm:flex-row sm:items-start gap-4">
-      <div class="w-14 h-14 bg-indigo-900/50 rounded-xl flex items-center justify-center flex-shrink-0">
-        <i class="fas fa-calendar-alt text-indigo-400 text-2xl"></i>
+      <div class="w-14 h-14 bg-red-900/50 rounded-xl flex items-center justify-center flex-shrink-0">
+        <i class="fas fa-calendar-alt text-red-400 text-2xl"></i>
       </div>
       <div class="flex-1 min-w-0">
         <h1 class="text-2xl font-bold text-white">{{ event.name }}</h1>
@@ -110,7 +110,7 @@
     <div class="flex flex-col sm:flex-row gap-3">
 
       <!-- Step 1: Import -->
-      <a href="/events/{{ event.id }}/import" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-indigo-500 transition-all">
+      <a href="/events/{{ event.id }}/import" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-red-500 transition-all">
         <div class="flex items-center gap-3 mb-2">
           <div class="w-8 h-8 rounded-lg flex items-center justify-center
             {% if stats.total_attendees > 0 %}bg-emerald-900/50{% else %}bg-slate-600{% endif %}">
@@ -123,13 +123,13 @@
           <span class="text-sm font-semibold text-white">Import Attendees</span>
         </div>
         <p class="text-xs text-slate-400">Pull from GHL or upload CSV</p>
-        <p class="text-xs text-indigo-400 mt-2 group-hover:text-indigo-300">
+        <p class="text-xs text-red-400 mt-2 group-hover:text-red-300">
           {% if stats.total_attendees > 0 %}{{ stats.total_attendees }} imported ✓{% else %}Start here →{% endif %}
         </p>
       </a>
 
       <!-- Step 2: Tickets -->
-      <a href="/events/{{ event.id }}/tickets" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-indigo-500 transition-all">
+      <a href="/events/{{ event.id }}/tickets" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-red-500 transition-all">
         <div class="flex items-center gap-3 mb-2">
           <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-600">
             <span class="text-slate-300 font-bold text-sm">2</span>
@@ -137,13 +137,13 @@
           <span class="text-sm font-semibold text-white">Generate & Send Tickets</span>
         </div>
         <p class="text-xs text-slate-400">Create QR codes & email via GHL</p>
-        <p class="text-xs text-indigo-400 mt-2 group-hover:text-indigo-300">
+        <p class="text-xs text-red-400 mt-2 group-hover:text-red-300">
           {% if stats.tickets_sent_count > 0 %}{{ stats.tickets_sent_count }} sent ✓{% else %}Manage tickets →{% endif %}
         </p>
       </a>
 
       <!-- Step 3: Check-in -->
-      <a href="/checkin/{{ event.id }}" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-indigo-500 transition-all">
+      <a href="/checkin/{{ event.id }}" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-red-500 transition-all">
         <div class="flex items-center gap-3 mb-2">
           <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-600">
             <span class="text-slate-300 font-bold text-sm">3</span>
@@ -151,11 +151,11 @@
           <span class="text-sm font-semibold text-white">Event Day Check-In</span>
         </div>
         <p class="text-xs text-slate-400">Scan QR codes at the door</p>
-        <p class="text-xs text-indigo-400 mt-2 group-hover:text-indigo-300">Open scanner →</p>
+        <p class="text-xs text-red-400 mt-2 group-hover:text-red-300">Open scanner →</p>
       </a>
 
       <!-- Step 4: Report -->
-      <a href="/reports/{{ event.id }}" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-indigo-500 transition-all">
+      <a href="/reports/{{ event.id }}" class="flex-1 group p-4 bg-slate-700/50 hover:bg-slate-700 rounded-xl border border-slate-600 hover:border-red-500 transition-all">
         <div class="flex items-center gap-3 mb-2">
           <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-600">
             <span class="text-slate-300 font-bold text-sm">4</span>
@@ -163,7 +163,7 @@
           <span class="text-sm font-semibold text-white">Attendance Report</span>
         </div>
         <p class="text-xs text-slate-400">View & export attendance data</p>
-        <p class="text-xs text-indigo-400 mt-2 group-hover:text-indigo-300">View report →</p>
+        <p class="text-xs text-red-400 mt-2 group-hover:text-red-300">View report →</p>
       </a>
 
     </div>
@@ -173,7 +173,7 @@
   <div x-data="checkinPermissions({{ event.id }})" x-init="load()" class="card mb-6">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-        <i class="fas fa-shield-alt text-indigo-400"></i> Check-In Staff Access
+        <i class="fas fa-shield-alt text-red-400"></i> Check-In Staff Access
       </h2>
       <span class="text-xs text-slate-500"
         x-text="staff.length ? `${grantedCount} of ${staff.length} staff granted` : ''">
@@ -189,7 +189,7 @@
     <div x-show="!loading && staff.length === 0" x-cloak class="text-center py-6">
       <i class="fas fa-user-slash text-slate-700 text-3xl mb-2 block"></i>
       <p class="text-slate-400 text-sm">No check-in staff accounts exist yet.</p>
-      <a href="/admin/users" class="text-indigo-400 text-xs hover:text-indigo-300 mt-1 inline-block">
+      <a href="/admin/users" class="text-red-400 text-xs hover:text-red-300 mt-1 inline-block">
         <i class="fas fa-plus mr-1"></i>Create staff accounts →
       </a>
     </div>
@@ -212,7 +212,7 @@
             :disabled="toggling === member.id"
             :class="member.has_access
               ? 'bg-emerald-700/80 hover:bg-red-800/80 border-emerald-600 hover:border-red-600 text-white group'
-              : 'bg-slate-600 hover:bg-indigo-700 border-slate-500 hover:border-indigo-500 text-slate-300 hover:text-white'"
+              : 'bg-slate-600 hover:bg-red-700 border-slate-500 hover:border-red-500 text-slate-300 hover:text-white'"
             class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all font-medium min-w-[120px] justify-center">
             <template x-if="toggling === member.id">
               <i class="fas fa-circle-notch fa-spin"></i>
@@ -238,7 +238,7 @@
   <!-- Folder & archive controls -->
   <div class="card mb-6">
     <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-      <i class="fas fa-folder text-indigo-400"></i> Organisation &amp; Archive
+      <i class="fas fa-folder text-red-400"></i> Organisation &amp; Archive
     </h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
 

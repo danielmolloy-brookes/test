@@ -50,7 +50,7 @@
     <!-- Basic info -->
     <div class="card space-y-5">
       <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-        <i class="fas fa-info-circle text-indigo-400"></i> Event Details
+        <i class="fas fa-info-circle text-red-400"></i> Event Details
       </h2>
 
       <div>
@@ -92,7 +92,7 @@
     <!-- GHL settings -->
     <div class="card space-y-5">
       <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-        <i class="fas fa-link text-indigo-400"></i> GoHighLevel Settings
+        <i class="fas fa-link text-red-400"></i> GoHighLevel Settings
       </h2>
       <p class="text-xs text-slate-500 -mt-2">Configure the GHL API credentials and workflow for this event.</p>
 
@@ -181,7 +181,7 @@
     <!-- Folder / organisation -->
     <div class="card space-y-4">
       <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-        <i class="fas fa-folder text-indigo-400"></i> Organisation
+        <i class="fas fa-folder text-red-400"></i> Organisation
         <span class="text-slate-600 font-normal normal-case tracking-normal">(optional)</span>
       </h2>
 
@@ -201,7 +201,7 @@
       </div>
 
       <!-- New folder fields — shown when "Create new folder" selected -->
-      <div x-show="folderChoice === '__new__'" x-cloak x-transition class="space-y-3 pl-4 border-l-2 border-indigo-700">
+      <div x-show="folderChoice === '__new__'" x-cloak x-transition class="space-y-3 pl-4 border-l-2 border-red-700">
         <div>
           <label class="label text-xs">New folder name <span class="text-red-400">*</span></label>
           <input type="text" name="new_folder_name" x-model="newFolderName"
@@ -242,7 +242,7 @@
     {% if event %}
     <div class="card p-0 overflow-hidden" x-data="brandingApp({{ event.id }})">
       <div class="px-5 py-4 border-b border-slate-700 flex items-center gap-2">
-        <i class="fas fa-palette text-indigo-400"></i>
+        <i class="fas fa-palette text-red-400"></i>
         <h5 class="font-semibold text-sm mb-0">Event Branding</h5>
       </div>
 
@@ -258,7 +258,7 @@
                 <input type="color" x-model="colours.primary" @change="previewColours()"
                   class="w-10 h-10 rounded-lg border border-slate-600 cursor-pointer bg-transparent p-0.5"/>
                 <input type="text" x-model="colours.primary" @input="previewColours()"
-                  class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                  class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-red-500"
                   maxlength="7" placeholder="#6366f1"/>
               </div>
             </div>
@@ -268,7 +268,7 @@
                 <input type="color" x-model="colours.secondary" @change="previewColours()"
                   class="w-10 h-10 rounded-lg border border-slate-600 cursor-pointer bg-transparent p-0.5"/>
                 <input type="text" x-model="colours.secondary" @input="previewColours()"
-                  class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                  class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-red-500"
                   maxlength="7" placeholder="#4f46e5"/>
               </div>
             </div>
@@ -278,7 +278,7 @@
                 <input type="color" x-model="colours.tertiary" @change="previewColours()"
                   class="w-10 h-10 rounded-lg border border-slate-600 cursor-pointer bg-transparent p-0.5"/>
                 <input type="text" x-model="colours.tertiary" @input="previewColours()"
-                  class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-indigo-500"
+                  class="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-red-500"
                   maxlength="7" placeholder="#818cf8"/>
               </div>
             </div>
@@ -383,7 +383,7 @@
     <!-- Profile settings -->
     <div class="card p-4 space-y-3">
       <p class="text-sm font-semibold flex items-center gap-2">
-        <i class="fas fa-id-card text-indigo-400"></i> Public profiles
+        <i class="fas fa-id-card text-red-400"></i> Public profiles
       </p>
 
       <!-- Disable profiles entirely -->
@@ -410,7 +410,7 @@
           <input type="checkbox" name="profile_consent_enabled" value="1"
             {% if event and event.profile_consent_enabled %}checked{% endif %}
             class="sr-only peer"/>
-          <div class="w-11 h-6 bg-slate-600 peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+          <div class="w-11 h-6 bg-slate-600 peer-focus:ring-2 peer-focus:ring-red-500 rounded-full peer peer-checked:bg-red-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
         </label>
       </div>
     </div>

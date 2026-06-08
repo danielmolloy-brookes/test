@@ -23,7 +23,7 @@
     <!-- Create user form -->
     <div class="card h-fit">
       <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-        <i class="fas fa-user-plus text-indigo-400"></i> Add New User
+        <i class="fas fa-user-plus text-red-400"></i> Add New User
       </h2>
 
       <div class="space-y-4">
@@ -60,8 +60,8 @@
             </label>
             <label class="cursor-pointer">
               <input type="radio" x-model="form.role" value="admin" class="sr-only peer" />
-              <div class="p-3 rounded-xl border border-slate-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 transition-all text-center">
-                <i class="fas fa-crown text-indigo-400 text-lg block mb-1"></i>
+              <div class="p-3 rounded-xl border border-slate-600 peer-checked:border-red-500 peer-checked:bg-red-900/20 transition-all text-center">
+                <i class="fas fa-crown text-red-400 text-lg block mb-1"></i>
                 <p class="text-xs font-semibold text-white">Admin</p>
                 <p class="text-xs text-slate-500">Full access</p>
               </div>
@@ -99,7 +99,7 @@
     <!-- Users list -->
     <div class="lg:col-span-2 card">
       <h2 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-        <i class="fas fa-users text-indigo-400"></i>
+        <i class="fas fa-users text-red-400"></i>
         All Users
         <span class="text-slate-500 font-normal ml-1">({{ users|length }})</span>
       </h2>
@@ -111,7 +111,7 @@
 
           <!-- Avatar -->
           <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0
-            {% if u.role == 'admin' %}bg-indigo-700 text-indigo-100{% else %}bg-emerald-800 text-emerald-100{% endif %}">
+            {% if u.role == 'admin' %}bg-red-700 text-red-100{% else %}bg-emerald-800 text-emerald-100{% endif %}">
             {{ (u.display_name or u.username)[0].upper() }}
           </div>
 
@@ -212,7 +212,7 @@
   <!-- Role guide -->
   <div class="mt-6 card">
     <h2 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-      <i class="fas fa-info-circle text-indigo-400"></i> Role Permissions
+      <i class="fas fa-info-circle text-red-400"></i> Role Permissions
     </h2>
     <div class="overflow-x-auto">
       <table class="w-full text-xs">

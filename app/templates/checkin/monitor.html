@@ -37,8 +37,8 @@
         <span class="sm:hidden">In</span><span class="hidden sm:inline">Checked In</span>
       </p>
     </div>
-    <div class="bg-indigo-900/30 border border-indigo-700/50 rounded-xl p-2 sm:p-3 text-center">
-      <p class="text-lg sm:text-2xl font-bold text-indigo-400" x-text="awaiting.length">—</p>
+    <div class="bg-red-900/30 border border-red-700/50 rounded-xl p-2 sm:p-3 text-center">
+      <p class="text-lg sm:text-2xl font-bold text-red-400" x-text="awaiting.length">—</p>
       <p class="text-[10px] sm:text-xs text-slate-400 leading-tight">
         <span class="sm:hidden">Waiting</span><span class="hidden sm:inline">Awaiting Badge</span>
       </p>
@@ -104,10 +104,10 @@
     <div>
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-          <i class="fas fa-id-badge text-indigo-400"></i>
+          <i class="fas fa-id-badge text-red-400"></i>
           Awaiting Badge
           <span x-show="awaiting.length > 0"
-            class="bg-indigo-600 text-white text-xs rounded-full px-2 py-0.5 font-bold"
+            class="bg-red-600 text-white text-xs rounded-full px-2 py-0.5 font-bold"
             x-text="awaiting.length"></span>
         </h2>
         <span class="text-xs text-slate-500">Tap ✓ to issue badge</span>
@@ -174,8 +174,8 @@
               {% if event.profile_consent_enabled %}
               <button @click="toggleConsent(entry)"
                 :class="consentState(entry)
-                  ? 'bg-indigo-700 border-indigo-500 text-white'
-                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-indigo-700 hover:border-indigo-500 hover:text-white'"
+                  ? 'bg-red-700 border-red-500 text-white'
+                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-red-700 hover:border-red-500 hover:text-white'"
                 class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all border active:scale-95">
                 <i class="fas fa-user-check"></i>
                 <span x-text="consentState(entry) ? 'Profile Shared' : 'Share Profile'"></span>
@@ -233,7 +233,7 @@
                 <i class="fas fa-check-circle"></i>
               </span>
               {% if event.profile_consent_enabled %}
-              <span :class="consentState(entry) ? 'text-indigo-400' : 'text-slate-700'"
+              <span :class="consentState(entry) ? 'text-red-400' : 'text-slate-700'"
                     class="text-xs" title="Profile consent">
                 <i class="fas fa-user-check"></i>
               </span>
