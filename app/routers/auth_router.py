@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.auth import create_access_token, create_pending_token, decode_token, verify_password
+from app.auth import create_access_token, create_pending_token, decode_token, revoke_token, verify_password
 from app.config import settings
 from app.database import get_db
 from app.limiter import limiter
@@ -62,7 +62,10 @@ async def login_submit(
 
 
 @router.get("/logout")
-async def logout():
+async def logout(request: Request):
+    token = request.cookies.get("access_token")
+    if token:
+        revoke_token(token)
     resp = RedirectResponse(url="/login", status_code=303)
     resp.delete_cookie("access_token")
     return resp

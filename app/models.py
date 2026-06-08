@@ -277,6 +277,18 @@ class EventSlot(Base):
         return max(0, self.capacity - self.booked_count)
 
 
+# ── Revoked Tokens ───────────────────────────────────────────
+
+class RevokedToken(Base):
+    """JWT tokens that have been explicitly revoked (e.g. on logout)."""
+    __tablename__ = "revoked_tokens"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    jti        = Column(String(36), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)  # for cleanup
+    revoked_at = Column(DateTime, default=datetime.utcnow)
+
+
 # ── Slot Bookings ─────────────────────────────────────────────
 
 class SlotBooking(Base):

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
+import uuid
 
 from fastapi import Cookie, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
@@ -9,8 +10,8 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import get_db
-from app.models import User
+from app.database import get_db, SessionLocal
+from app.models import User, RevokedToken
 
 ALGORITHM = "HS256"
 
@@ -29,7 +30,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     expire = datetime.utcnow() + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "jti": str(uuid.uuid4())})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -49,9 +50,42 @@ def decode_token(token: str) -> Optional[str]:
         # Reject pending tokens — they must not grant full access
         if payload.get("type") == "pending_2fa":
             return None
+        # Check revocation list
+        jti = payload.get("jti")
+        if jti:
+            db = SessionLocal()
+            try:
+                if db.query(RevokedToken).filter(RevokedToken.jti == jti).first():
+                    return None
+            finally:
+                db.close()
         return payload.get("sub")
     except JWTError:
         return None
+
+
+def revoke_token(token: str) -> None:
+    """Add a token to the revocation list so it cannot be used again."""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if not jti or not exp:
+            return
+        expires_at = datetime.utcfromtimestamp(exp)
+        db = SessionLocal()
+        try:
+            # Avoid duplicate if already revoked
+            if not db.query(RevokedToken).filter(RevokedToken.jti == jti).first():
+                db.add(RevokedToken(jti=jti, expires_at=expires_at))
+                db.commit()
+            # Clean up expired tokens while we're here
+            db.query(RevokedToken).filter(RevokedToken.expires_at < datetime.utcnow()).delete()
+            db.commit()
+        finally:
+            db.close()
+    except JWTError:
+        pass
 
 
 def decode_pending_token(token: str) -> Optional[str]:

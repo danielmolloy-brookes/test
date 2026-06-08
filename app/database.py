@@ -48,6 +48,7 @@ def init_db():
     _run_branding_migrations()
     _run_consent_migrations()
     _run_totp_migrations()
+    _run_revoked_token_migrations()
 
     # Ensure QR code directory exists
     os.makedirs(settings.QR_CODE_DIR, exist_ok=True)
@@ -467,4 +468,22 @@ def _run_totp_migrations():
             conn.commit()
         if "totp_backup_codes" not in user_cols:
             conn.execute(text("ALTER TABLE users ADD COLUMN totp_backup_codes TEXT"))
+            conn.commit()
+
+
+def _run_revoked_token_migrations():
+    """Revoked JWT tokens table for immediate logout invalidation."""
+    from sqlalchemy import text, inspect
+    insp = inspect(engine)
+    with engine.connect() as conn:
+        if "revoked_tokens" not in insp.get_table_names():
+            conn.execute(text("""
+                CREATE TABLE revoked_tokens (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    jti        VARCHAR(36) NOT NULL UNIQUE,
+                    expires_at DATETIME NOT NULL,
+                    revoked_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            conn.execute(text("CREATE INDEX ix_revoked_tokens_jti ON revoked_tokens (jti)"))
             conn.commit()
