@@ -22,14 +22,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
-
-limiter = Limiter(key_func=get_remote_address)
 
 from app.auth import require_admin_api
 from app.database import get_db
+from app.limiter import limiter
 from app.models import Event, EventSlot, Organisation, SlotBooking, User
 
 router = APIRouter()

@@ -18,15 +18,12 @@ import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
-
-limiter = Limiter(key_func=get_remote_address)
 
 from app.auth import decode_token, decode_pending_token, create_access_token, verify_password, get_password_hash
 from app.config import settings
 from app.database import get_db, SessionLocal
+from app.limiter import limiter
 from app.models import User
 from app.password_policy import validate_password
 
