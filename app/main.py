@@ -170,3 +170,9 @@ async def startup_event():
         logger.warning("⚠️  GHL_API_KEY or GHL_LOCATION_ID not set — GHL features disabled")
     logger.info(f"🔐 Admin user: {settings.ADMIN_USERNAME}")
     logger.info("✅ Application ready!")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, workers=1)
