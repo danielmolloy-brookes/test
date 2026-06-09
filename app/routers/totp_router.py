@@ -44,6 +44,7 @@ def change_password_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/api/account/change-password")
+@limiter.limit("5/minute")
 def change_password(
     request: Request,
     payload: dict,
@@ -148,6 +149,7 @@ def twofa_page(request: Request, db: Session = Depends(get_db)):
 # ── Generate secret + QR ─────────────────────────────────────
 
 @router.post("/account/2fa/setup")
+@limiter.limit("10/minute")
 def twofa_setup(request: Request, db: Session = Depends(get_db)):
     user = _get_current_user(request, db) or _get_pending_user(request, db)
     if not user:
@@ -174,6 +176,7 @@ def twofa_setup(request: Request, db: Session = Depends(get_db)):
 # ── Verify code and enable ────────────────────────────────────
 
 @router.post("/account/2fa/verify")
+@limiter.limit("10/minute")
 def twofa_verify(
     request: Request,
     payload: dict,
@@ -215,6 +218,7 @@ def twofa_verify(
 # ── Disable 2FA ───────────────────────────────────────────────
 
 @router.post("/account/2fa/disable")
+@limiter.limit("5/minute")
 def twofa_disable(
     request: Request,
     payload: dict,
