@@ -1,22 +1,27 @@
 """
 Exhibitors tab — per-event list of exhibiting companies.
 
-GET  /events/{id}/exhibitors            — page
-GET  /api/events/{id}/exhibitors        — JSON list with check-in status
-POST /api/events/{id}/exhibitors        — add single exhibitor
-POST /api/events/{id}/exhibitors/csv    — bulk CSV upload
-POST /api/events/{id}/exhibitors/map    — upload exhibitor map file
-DELETE /api/exhibitors/{id}             — remove exhibitor
-PATCH  /api/exhibitors/{id}             — update location_code / notes
+GET    /events/{id}/exhibitors                       — page
+GET    /api/events/{id}/exhibitors                   — JSON list with check-in status
+POST   /api/events/{id}/exhibitors                   — add single exhibitor
+POST   /api/events/{id}/exhibitors/csv               — bulk CSV upload
+POST   /api/events/{id}/exhibitors/map               — upload exhibitor map file
+POST   /api/events/{id}/exhibitors/import-from-attendees
+GET    /api/events/{id}/exhibitors/report            — CSV report download
+POST   /api/exhibitors/{id}/checkin                  — manual check-in
+POST   /api/exhibitors/{id}/undo-checkin             — undo manual check-in
+DELETE /api/exhibitors/{id}                          — remove exhibitor
+PATCH  /api/exhibitors/{id}                          — update location_code / notes
 """
 import csv
 import io
 import logging
 import os
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -36,8 +41,7 @@ ALLOWED_MAP_EXTS  = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"}
 
 
 def _exhibitor_status(exhibitor: Exhibitor, db: Session) -> dict:
-    """Return the exhibitor dict with live check-in status derived from attendees."""
-    # Find attendees for this event whose company name matches (case-insensitive)
+    """Return the exhibitor dict with live check-in status derived from attendees or manual override."""
     reps = (
         db.query(Attendee)
         .filter(
@@ -47,20 +51,27 @@ def _exhibitor_status(exhibitor: Exhibitor, db: Session) -> dict:
         .all()
     )
     checked_in_reps = [r for r in reps if r.checked_in]
-    checked_in = len(checked_in_reps) > 0
-    checked_in_at = max(
-        (r.checked_in_at for r in checked_in_reps if r.checked_in_at),
-        default=None,
-    )
+    attendee_checked_in = len(checked_in_reps) > 0
+    checked_in = attendee_checked_in or bool(exhibitor.manually_checked_in)
+
+    if exhibitor.manually_checked_in and exhibitor.manually_checked_in_at:
+        checked_in_at = exhibitor.manually_checked_in_at
+    else:
+        checked_in_at = max(
+            (r.checked_in_at for r in checked_in_reps if r.checked_in_at),
+            default=None,
+        )
+
     return {
-        "id":            exhibitor.id,
-        "event_id":      exhibitor.event_id,
-        "company_name":  exhibitor.company_name,
-        "location_code": exhibitor.location_code,
-        "notes":         exhibitor.notes,
-        "rep_count":     len(reps),
-        "checked_in":    checked_in,
-        "checked_in_at": checked_in_at.isoformat() if checked_in_at else None,
+        "id":                    exhibitor.id,
+        "event_id":              exhibitor.event_id,
+        "company_name":          exhibitor.company_name,
+        "location_code":         exhibitor.location_code,
+        "notes":                 exhibitor.notes,
+        "rep_count":             len(reps),
+        "checked_in":            checked_in,
+        "manually_checked_in":   bool(exhibitor.manually_checked_in),
+        "checked_in_at":         checked_in_at.isoformat() if checked_in_at else None,
         "checked_in_reps": [
             {"id": r.id, "full_name": r.full_name, "email": r.email, "checked_in_at": r.checked_in_at.isoformat() if r.checked_in_at else None}
             for r in checked_in_reps
@@ -183,6 +194,97 @@ async def delete_exhibitor(
     db.delete(exhibitor)
     db.commit()
     return {"ok": True}
+
+
+@router.post("/api/exhibitors/{exhibitor_id}/checkin")
+async def manual_checkin_exhibitor(
+    exhibitor_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_api),
+):
+    exhibitor = db.query(Exhibitor).filter(Exhibitor.id == exhibitor_id).first()
+    if not exhibitor:
+        raise HTTPException(status_code=404, detail="Exhibitor not found")
+    event = org_filter(db.query(Event), current_user, Event).filter(Event.id == exhibitor.event_id).first()
+    if not event:
+        raise HTTPException(status_code=403, detail="Access denied.")
+    exhibitor.manually_checked_in = True
+    exhibitor.manually_checked_in_at = datetime.utcnow()
+    db.commit()
+    db.refresh(exhibitor)
+    return _exhibitor_status(exhibitor, db)
+
+
+@router.post("/api/exhibitors/{exhibitor_id}/undo-checkin")
+async def undo_checkin_exhibitor(
+    exhibitor_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_api),
+):
+    exhibitor = db.query(Exhibitor).filter(Exhibitor.id == exhibitor_id).first()
+    if not exhibitor:
+        raise HTTPException(status_code=404, detail="Exhibitor not found")
+    event = org_filter(db.query(Event), current_user, Event).filter(Event.id == exhibitor.event_id).first()
+    if not event:
+        raise HTTPException(status_code=403, detail="Access denied.")
+    exhibitor.manually_checked_in = False
+    exhibitor.manually_checked_in_at = None
+    db.commit()
+    db.refresh(exhibitor)
+    return _exhibitor_status(exhibitor, db)
+
+
+@router.get("/api/events/{event_id}/exhibitors/report")
+async def exhibitors_report(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_api),
+):
+    """Download a CSV report of all exhibitors and their check-in status."""
+    event = org_filter(db.query(Event), current_user, Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    exhibitors = (
+        db.query(Exhibitor)
+        .filter(Exhibitor.event_id == event_id)
+        .order_by(Exhibitor.company_name)
+        .all()
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Company", "Location / Stand", "Status",
+        "Checked In At", "Method", "Reps Registered",
+        "Rep Names", "Notes",
+    ])
+
+    for ex in exhibitors:
+        status = _exhibitor_status(ex, db)
+        checked_in_at = status["checked_in_at"] or ""
+        method = ""
+        if status["checked_in"]:
+            method = "Manual" if status["manually_checked_in"] else "Scanner"
+        rep_names = ", ".join(r["full_name"] for r in status["checked_in_reps"]) if status["checked_in_reps"] else ""
+        writer.writerow([
+            ex.company_name,
+            ex.location_code or "",
+            "Checked In" if status["checked_in"] else "Not Arrived",
+            checked_in_at,
+            method,
+            status["rep_count"],
+            rep_names,
+            ex.notes or "",
+        ])
+
+    output.seek(0)
+    filename = f"exhibitors_{event.name.replace(' ', '_')}_{event_id}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/api/events/{event_id}/exhibitors/import-from-attendees")

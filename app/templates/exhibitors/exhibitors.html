@@ -35,6 +35,9 @@
   <button @click="$dispatch('open-csv-modal')" class="btn-secondary text-xs px-3 py-1.5">
     <i class="fas fa-file-csv mr-1"></i> Import CSV
   </button>
+  <a :href="`/api/events/${eventId}/exhibitors/report`" class="btn-secondary text-xs px-3 py-1.5">
+    <i class="fas fa-download mr-1"></i> Export Report
+  </a>
   <button @click="$dispatch('open-add-modal')" class="btn-primary text-xs px-3 py-1.5">
     <i class="fas fa-plus mr-1"></i> Add Exhibitor
   </button>
@@ -110,6 +113,9 @@
               <button @click="openEdit(ex)" class="text-xs text-slate-400 hover:text-indigo-400 transition-colors">
                 <i class="fas fa-pen mr-1"></i>Edit
               </button>
+              <button @click="manualCheckin(ex.id)" class="text-xs text-slate-400 hover:text-emerald-400 transition-colors">
+                <i class="fas fa-check mr-1"></i>Check In
+              </button>
               <button @click="deleteExhibitor(ex.id)" class="text-xs text-slate-400 hover:text-red-400 transition-colors ml-auto">
                 <i class="fas fa-trash"></i>
               </button>
@@ -139,6 +145,10 @@
                     class="shrink-0 text-xs font-bold bg-emerald-900/50 text-emerald-400 border border-emerald-700 rounded-md px-2 py-0.5"
                     x-text="ex.location_code"></span>
             </div>
+            <!-- Manual badge -->
+            <template x-if="ex.manually_checked_in && ex.checked_in_reps.length === 0">
+              <p class="text-xs text-amber-500"><i class="fas fa-hand-paper mr-1"></i>Manually checked in</p>
+            </template>
             <!-- Who checked in -->
             <template x-for="rep in ex.checked_in_reps" :key="rep.id">
               <p class="text-xs text-emerald-500">
@@ -153,6 +163,11 @@
               <button @click="openEdit(ex)" class="text-xs text-emerald-700 hover:text-emerald-400 transition-colors">
                 <i class="fas fa-pen mr-1"></i>Edit
               </button>
+              <template x-if="ex.manually_checked_in">
+                <button @click="undoCheckin(ex.id)" class="text-xs text-emerald-700 hover:text-amber-400 transition-colors">
+                  <i class="fas fa-undo mr-1"></i>Undo
+                </button>
+              </template>
               <button @click="deleteExhibitor(ex.id)" class="text-xs text-emerald-700 hover:text-red-400 transition-colors ml-auto">
                 <i class="fas fa-trash"></i>
               </button>
@@ -377,6 +392,24 @@ function exhibitorApp(eventId) {
         if (idx !== -1) this.exhibitors[idx] = updated;
         this.editModal = false;
       } finally { this.editLoading = false; }
+    },
+
+    async manualCheckin(id) {
+      const r = await fetch(`/api/exhibitors/${id}/checkin`, { method: 'POST' });
+      if (r.ok) {
+        const updated = await r.json();
+        const idx = this.exhibitors.findIndex(e => e.id === id);
+        if (idx !== -1) this.exhibitors[idx] = updated;
+      }
+    },
+
+    async undoCheckin(id) {
+      const r = await fetch(`/api/exhibitors/${id}/undo-checkin`, { method: 'POST' });
+      if (r.ok) {
+        const updated = await r.json();
+        const idx = this.exhibitors.findIndex(e => e.id === id);
+        if (idx !== -1) this.exhibitors[idx] = updated;
+      }
     },
 
     async deleteExhibitor(id) {

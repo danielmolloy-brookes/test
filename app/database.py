@@ -510,16 +510,28 @@ def _run_exhibitor_migrations():
             conn.execute(text("ALTER TABLE attendees ADD COLUMN is_exhibitor BOOLEAN NOT NULL DEFAULT 0"))
             conn.commit()
 
+        # manual check-in columns on exhibitors (added in v2)
+        if "exhibitors" in insp.get_table_names():
+            exhibitor_cols = [c["name"] for c in insp.get_columns("exhibitors")]
+            if "manually_checked_in" not in exhibitor_cols:
+                conn.execute(text("ALTER TABLE exhibitors ADD COLUMN manually_checked_in BOOLEAN NOT NULL DEFAULT 0"))
+                conn.commit()
+            if "manually_checked_in_at" not in exhibitor_cols:
+                conn.execute(text("ALTER TABLE exhibitors ADD COLUMN manually_checked_in_at DATETIME"))
+                conn.commit()
+
         # Exhibitors table
         if "exhibitors" not in insp.get_table_names():
             conn.execute(text("""
                 CREATE TABLE exhibitors (
                     id            INTEGER PRIMARY KEY AUTOINCREMENT,
                     event_id      INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-                    company_name  VARCHAR(255) NOT NULL,
-                    location_code VARCHAR(100),
-                    notes         TEXT,
-                    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+                    company_name           VARCHAR(255) NOT NULL,
+                    location_code          VARCHAR(100),
+                    notes                  TEXT,
+                    manually_checked_in    BOOLEAN NOT NULL DEFAULT 0,
+                    manually_checked_in_at DATETIME,
+                    created_at             DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """))
             conn.execute(text("CREATE INDEX ix_exhibitors_event_id ON exhibitors (event_id)"))

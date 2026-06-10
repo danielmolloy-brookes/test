@@ -324,9 +324,11 @@ class Exhibitor(Base):
     """A company exhibiting at an event. Checked-in status is derived from attendee company matches."""
     __tablename__ = "exhibitors"
 
-    id            = Column(Integer, primary_key=True, index=True)
-    event_id      = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
-    company_name  = Column(String(255), nullable=False)
-    location_code = Column(String(100), nullable=True)
-    notes         = Column(Text, nullable=True)
-    created_at    = Column(DateTime, default=datetime.utcnow)
+    id                   = Column(Integer, primary_key=True, index=True)
+    event_id             = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_name         = Column(String(255), nullable=False)
+    location_code        = Column(String(100), nullable=True)
+    notes                = Column(Text, nullable=True)
+    manually_checked_in  = Column(Boolean, default=False, nullable=False)
+    manually_checked_in_at = Column(DateTime, nullable=True)
+    created_at           = Column(DateTime, default=datetime.utcnow)
