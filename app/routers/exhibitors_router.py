@@ -287,34 +287,67 @@ async def exhibitors_report(
     )
 
 
-@router.post("/api/events/{event_id}/exhibitors/import-from-attendees")
-async def import_from_attendees(
+@router.get("/api/events/{event_id}/attendee-companies")
+async def list_attendee_companies(
     event_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_api),
 ):
-    """
-    Find all attendees flagged as exhibitors (is_exhibitor=True) for this event,
-    extract their unique company names, and add any that aren't already on the list.
-    """
+    """Return all unique company names from attendees for this event, with a flag for which are already exhibitors."""
     event = org_filter(db.query(Event), current_user, Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    exhibitor_attendees = (
-        db.query(Attendee)
-        .filter(Attendee.event_id == event_id, Attendee.is_exhibitor == True)
+    attendees = (
+        db.query(Attendee.company)
+        .filter(Attendee.event_id == event_id, Attendee.company != None, Attendee.company != "")
+        .distinct()
         .all()
     )
+    existing_exhibitors = {
+        e.company_name.lower()
+        for e in db.query(Exhibitor.company_name).filter(Exhibitor.event_id == event_id).all()
+    }
+    companies = sorted({a.company.strip() for a in attendees if a.company and a.company.strip()})
+    return [
+        {"name": c, "already_exhibitor": c.lower() in existing_exhibitors}
+        for c in companies
+    ]
 
-    # Unique company names (non-empty)
-    companies = {a.company.strip() for a in exhibitor_attendees if a.company and a.company.strip()}
 
-    if not companies:
-        return {"added": 0, "skipped": 0, "message": "No attendees with an exhibitor tag and a company name were found."}
+@router.post("/api/events/{event_id}/exhibitors/import-from-attendees")
+async def import_from_attendees(
+    event_id: int,
+    companies: list = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_api),
+):
+    """Add selected company names as exhibitors."""
+    from fastapi import Body
+    event = org_filter(db.query(Event), current_user, Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return {"added": 0, "skipped": 0}  # handled via the JSON body endpoint below
 
+
+@router.post("/api/events/{event_id}/exhibitors/bulk-add")
+async def bulk_add_exhibitors(
+    event_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_api),
+):
+    """Add a list of company names as exhibitors in one call."""
+    event = org_filter(db.query(Event), current_user, Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    companies = payload.get("companies", [])
     added = skipped = 0
-    for company in sorted(companies):
+    for company in companies:
+        company = company.strip()
+        if not company:
+            continue
         existing = db.query(Exhibitor).filter(
             Exhibitor.event_id == event_id,
             Exhibitor.company_name.ilike(company),

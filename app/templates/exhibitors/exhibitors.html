@@ -28,9 +28,8 @@
   <button @click="$dispatch('open-map-modal')" class="btn-secondary text-xs px-3 py-1.5">
     <i class="fas fa-upload mr-1"></i> Upload Map
   </button>
-  <button @click="importFromAttendees()" class="btn-secondary text-xs px-3 py-1.5" :disabled="attendeeImportLoading">
-    <i class="fas fa-users mr-1"></i>
-    <span x-text="attendeeImportLoading ? 'Importing…' : 'Import from Attendees'"></span>
+  <button @click="$dispatch('open-attendee-picker')" class="btn-secondary text-xs px-3 py-1.5">
+    <i class="fas fa-users mr-1"></i> Import from Attendees
   </button>
   <button @click="$dispatch('open-csv-modal')" class="btn-secondary text-xs px-3 py-1.5">
     <i class="fas fa-file-csv mr-1"></i> Import CSV
@@ -45,7 +44,7 @@
 {% endblock %}
 
 {% block content %}
-<div x-data="exhibitorApp({{ event.id }})" x-init="load()" @open-add-modal.window="addModal = true" @open-csv-modal.window="csvModal = true" @open-map-modal.window="mapModal = true">
+<div x-data="exhibitorApp({{ event.id }})" x-init="load()" @open-add-modal.window="addModal = true" @open-csv-modal.window="csvModal = true" @open-map-modal.window="mapModal = true" @open-attendee-picker.window="openAttendeePickerModal()">
 
   <!-- Stats bar -->
   <div class="flex items-center gap-6 mb-6 px-1">
@@ -277,6 +276,62 @@
     </div>
   </div>
 
+  <!-- ── Import from Attendees Picker Modal ────────────── -->
+  <div x-show="pickerModal" x-cloak @keydown.escape.window="pickerModal = false"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <div @click.outside="pickerModal = false" class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]">
+      <h2 class="text-lg font-bold text-white mb-1">Import from Attendees</h2>
+      <p class="text-slate-400 text-sm mb-3">Select the companies you want to add as exhibitors.</p>
+
+      <div x-show="pickerLoading" class="py-8 text-center text-slate-500">
+        <i class="fas fa-spinner fa-spin mr-2"></i> Loading companies…
+      </div>
+
+      <div x-show="!pickerLoading && pickerCompanies.length === 0" class="py-8 text-center text-slate-500">
+        <i class="fas fa-building text-2xl mb-2 block"></i>
+        No attendees with a company name found.
+      </div>
+
+      <template x-if="!pickerLoading && pickerCompanies.length > 0">
+        <div class="flex flex-col gap-3 min-h-0">
+          <!-- Select all -->
+          <div class="flex items-center justify-between text-sm border-b border-slate-700 pb-2">
+            <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+              <input type="checkbox" @change="toggleAll($event.target.checked)"
+                     :checked="pickerSelected.length === pickerCompanies.filter(c => !c.already_exhibitor).length && pickerCompanies.filter(c => !c.already_exhibitor).length > 0"
+                     class="rounded border-slate-600 bg-slate-700 text-indigo-600"/>
+              Select all new
+            </label>
+            <span class="text-slate-500 text-xs" x-text="pickerSelected.length + ' selected'"></span>
+          </div>
+          <!-- Company list -->
+          <div class="overflow-y-auto flex-1 space-y-1 pr-1">
+            <template x-for="c in pickerCompanies" :key="c.name">
+              <label class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-700/50 transition-colors"
+                     :class="c.already_exhibitor ? 'opacity-40 cursor-not-allowed' : ''">
+                <input type="checkbox"
+                       :disabled="c.already_exhibitor"
+                       :checked="pickerSelected.includes(c.name)"
+                       @change="toggleCompany(c.name, $event.target.checked)"
+                       class="rounded border-slate-600 bg-slate-700 text-indigo-600 shrink-0"/>
+                <span class="text-sm text-white flex-1" x-text="c.name"></span>
+                <span x-show="c.already_exhibitor" class="text-xs text-slate-500 badge-blue px-2 py-0.5 rounded-full">Already added</span>
+              </label>
+            </template>
+          </div>
+          <!-- Actions -->
+          <div class="flex gap-3 pt-2 border-t border-slate-700">
+            <button @click="bulkAddCompanies()" class="btn-primary flex-1" :disabled="pickerSelected.length === 0 || pickerSaving">
+              <i class="fas fa-plus mr-1"></i>
+              <span x-text="pickerSaving ? 'Adding…' : 'Add ' + pickerSelected.length + ' Exhibitor' + (pickerSelected.length !== 1 ? 's' : '')"></span>
+            </button>
+            <button @click="pickerModal = false" class="btn-secondary px-4">Cancel</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
   <!-- ── Map Upload Modal ────────────────────────────────── -->
   <div x-show="mapModal" x-cloak @keydown.escape.window="mapModal = false"
        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
@@ -316,7 +371,8 @@ function exhibitorApp(eventId) {
     addModal: false, editModal: false, csvModal: false, mapModal: false,
     newCompany: '', newLocation: '', newNotes: '',
     editId: null, editCompany: '', editLocation: '', editNotes: '',
-    addLoading: false, editLoading: false, csvLoading: false, mapLoading: false, attendeeImportLoading: false,
+    addLoading: false, editLoading: false, csvLoading: false, mapLoading: false,
+    pickerModal: false, pickerLoading: false, pickerCompanies: [], pickerSelected: [], pickerSaving: false,
     csvResult: null,
     mapUrl: '{{ ("/static/exhibitor_maps/" ~ event.exhibitor_map_path) if event.exhibitor_map_path else "" }}',
 
@@ -394,6 +450,49 @@ function exhibitorApp(eventId) {
       } finally { this.editLoading = false; }
     },
 
+    async openAttendeePickerModal() {
+      this.pickerModal = true;
+      this.pickerLoading = true;
+      this.pickerSelected = [];
+      try {
+        const r = await fetch(`/api/events/${this.eventId}/attendee-companies`);
+        this.pickerCompanies = await r.json();
+        // Pre-select all non-already-added companies
+        this.pickerSelected = this.pickerCompanies.filter(c => !c.already_exhibitor).map(c => c.name);
+      } finally { this.pickerLoading = false; }
+    },
+
+    toggleAll(checked) {
+      if (checked) {
+        this.pickerSelected = this.pickerCompanies.filter(c => !c.already_exhibitor).map(c => c.name);
+      } else {
+        this.pickerSelected = [];
+      }
+    },
+
+    toggleCompany(name, checked) {
+      if (checked) { if (!this.pickerSelected.includes(name)) this.pickerSelected.push(name); }
+      else { this.pickerSelected = this.pickerSelected.filter(n => n !== name); }
+    },
+
+    async bulkAddCompanies() {
+      if (!this.pickerSelected.length) return;
+      this.pickerSaving = true;
+      try {
+        const r = await fetch(`/api/events/${this.eventId}/exhibitors/bulk-add`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companies: this.pickerSelected }),
+        });
+        const d = await r.json();
+        if (r.ok) {
+          this.pickerModal = false;
+          await this.refresh();
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: `Added ${d.added} exhibitor${d.added !== 1 ? 's' : ''}`, type: 'success' } }));
+        }
+      } finally { this.pickerSaving = false; }
+    },
+
     async manualCheckin(id) {
       const r = await fetch(`/api/exhibitors/${id}/checkin`, { method: 'POST' });
       if (r.ok) {
@@ -416,20 +515,6 @@ function exhibitorApp(eventId) {
       if (!confirm('Remove this exhibitor?')) return;
       const r = await fetch(`/api/exhibitors/${id}`, { method: 'DELETE' });
       if (r.ok) this.exhibitors = this.exhibitors.filter(e => e.id !== id);
-    },
-
-    async importFromAttendees() {
-      this.attendeeImportLoading = true;
-      try {
-        const r = await fetch(`/api/events/${this.eventId}/exhibitors/import-from-attendees`, { method: 'POST' });
-        const d = await r.json();
-        if (d.added === 0 && d.skipped === 0) {
-          alert(d.message || 'No exhibitor-tagged attendees with company names found.');
-        } else {
-          alert(`Done — added ${d.added} exhibitor${d.added !== 1 ? 's' : ''}${d.skipped ? `, skipped ${d.skipped} already on the list` : ''}.`);
-          if (d.added > 0) await this.refresh();
-        }
-      } finally { this.attendeeImportLoading = false; }
     },
 
     async importCsv() {
