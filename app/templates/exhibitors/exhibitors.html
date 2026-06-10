@@ -69,6 +69,17 @@
     </div>
   </div>
 
+  <!-- Duplicate location warning banner -->
+  <div x-show="!loading && duplicateLocations.size > 0"
+       class="mb-4 flex items-center gap-3 px-4 py-3 bg-amber-900/30 border border-amber-700 rounded-xl text-sm text-amber-300">
+    <i class="fas fa-exclamation-triangle text-amber-400 shrink-0"></i>
+    <span>
+      <strong>Duplicate location codes detected:</strong>
+      <span x-text="Array.from(duplicateLocations).join(', ')"></span>
+      — two or more exhibitors share the same stand code.
+    </span>
+  </div>
+
   <!-- Loading -->
   <div x-show="loading" class="flex items-center justify-center py-20 text-slate-500">
     <i class="fas fa-spinner fa-spin mr-2"></i> Loading exhibitors…
@@ -97,8 +108,13 @@
             <div class="flex items-start justify-between gap-2">
               <h3 class="font-semibold text-white text-sm leading-tight" x-text="ex.company_name"></h3>
               <span x-show="ex.location_code"
-                    class="shrink-0 text-xs font-bold bg-indigo-900/50 text-indigo-300 border border-indigo-700 rounded-md px-2 py-0.5"
-                    x-text="ex.location_code"></span>
+                    :class="isDuplicateLocation(ex.location_code)
+                      ? 'bg-amber-900/50 text-amber-300 border-amber-600'
+                      : 'bg-indigo-900/50 text-indigo-300 border-indigo-700'"
+                    class="shrink-0 text-xs font-bold border rounded-md px-2 py-0.5 flex items-center gap-1">
+                <i x-show="isDuplicateLocation(ex.location_code)" class="fas fa-exclamation-triangle text-amber-400 text-[10px]"></i>
+                <span x-text="ex.location_code"></span>
+              </span>
             </div>
             <!-- Rep count -->
             <p class="text-xs text-slate-500">
@@ -141,8 +157,13 @@
                 <span x-text="ex.company_name"></span>
               </h3>
               <span x-show="ex.location_code"
-                    class="shrink-0 text-xs font-bold bg-emerald-900/50 text-emerald-400 border border-emerald-700 rounded-md px-2 py-0.5"
-                    x-text="ex.location_code"></span>
+                    :class="isDuplicateLocation(ex.location_code)
+                      ? 'bg-amber-900/50 text-amber-300 border-amber-600'
+                      : 'bg-emerald-900/50 text-emerald-400 border-emerald-700'"
+                    class="shrink-0 text-xs font-bold border rounded-md px-2 py-0.5 flex items-center gap-1">
+                <i x-show="isDuplicateLocation(ex.location_code)" class="fas fa-exclamation-triangle text-amber-400 text-[10px]"></i>
+                <span x-text="ex.location_code"></span>
+              </span>
             </div>
             <!-- Manual badge -->
             <template x-if="ex.manually_checked_in && ex.checked_in_reps.length === 0">
@@ -385,6 +406,17 @@ function exhibitorApp(eventId) {
     get checkedIn()   { return this.filtered.filter(e => e.checked_in); },
     get total()       { return this.exhibitors.length; },
     get checkedInCount() { return this.exhibitors.filter(e => e.checked_in).length; },
+    get duplicateLocations() {
+      const counts = {};
+      for (const e of this.exhibitors) {
+        const loc = (e.location_code || '').trim().toLowerCase();
+        if (loc) counts[loc] = (counts[loc] || 0) + 1;
+      }
+      return new Set(Object.keys(counts).filter(k => counts[k] > 1));
+    },
+    isDuplicateLocation(code) {
+      return code && this.duplicateLocations.has(code.trim().toLowerCase());
+    },
 
     async load() {
       this.loading = true;
