@@ -504,6 +504,12 @@ def _run_exhibitor_migrations():
             conn.execute(text("ALTER TABLE events ADD COLUMN exhibitor_map_path VARCHAR(500)"))
             conn.commit()
 
+        # is_exhibitor flag on attendees
+        attendee_cols = [c["name"] for c in insp.get_columns("attendees")]
+        if "is_exhibitor" not in attendee_cols:
+            conn.execute(text("ALTER TABLE attendees ADD COLUMN is_exhibitor BOOLEAN NOT NULL DEFAULT 0"))
+            conn.commit()
+
         # Exhibitors table
         if "exhibitors" not in insp.get_table_names():
             conn.execute(text("""

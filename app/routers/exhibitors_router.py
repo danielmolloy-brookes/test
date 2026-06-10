@@ -185,6 +185,48 @@ async def delete_exhibitor(
     return {"ok": True}
 
 
+@router.post("/api/events/{event_id}/exhibitors/import-from-attendees")
+async def import_from_attendees(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_api),
+):
+    """
+    Find all attendees flagged as exhibitors (is_exhibitor=True) for this event,
+    extract their unique company names, and add any that aren't already on the list.
+    """
+    event = org_filter(db.query(Event), current_user, Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    exhibitor_attendees = (
+        db.query(Attendee)
+        .filter(Attendee.event_id == event_id, Attendee.is_exhibitor == True)
+        .all()
+    )
+
+    # Unique company names (non-empty)
+    companies = {a.company.strip() for a in exhibitor_attendees if a.company and a.company.strip()}
+
+    if not companies:
+        return {"added": 0, "skipped": 0, "message": "No attendees with an exhibitor tag and a company name were found."}
+
+    added = skipped = 0
+    for company in sorted(companies):
+        existing = db.query(Exhibitor).filter(
+            Exhibitor.event_id == event_id,
+            Exhibitor.company_name.ilike(company),
+        ).first()
+        if existing:
+            skipped += 1
+            continue
+        db.add(Exhibitor(event_id=event_id, company_name=company))
+        added += 1
+
+    db.commit()
+    return {"added": added, "skipped": skipped}
+
+
 @router.post("/api/events/{event_id}/exhibitors/csv")
 async def import_exhibitors_csv(
     event_id: int,

@@ -57,6 +57,11 @@ def _is_vip_contact(tags: list) -> bool:
     return any("vip" in (t or "").lower() for t in tags)
 
 
+def _is_exhibitor_contact(tags: list) -> bool:
+    """Return True if any GHL tag contains 'exhibitor' (case-insensitive)."""
+    return any("exhibitor" in (t or "").lower() for t in tags)
+
+
 # ── Page routes ──────────────────────────────────────────────
 
 @router.get("/events/{event_id}/attendees", response_class=HTMLResponse)
@@ -285,6 +290,7 @@ async def import_selected_ghl_contacts(
             phone=c.phone or None,
             company=c.company or None,
             is_vip=_is_vip_contact(c.tags),
+            is_exhibitor=_is_exhibitor_contact(c.tags),
         ))
         if email:
             existing_emails.add(email)
@@ -456,6 +462,7 @@ async def _import_ghl_background(
                         phone=c.get("phone") or None,
                         company=company or None,
                         is_vip=_is_vip_contact(tags),
+                        is_exhibitor=_is_exhibitor_contact(tags),
                     ))
                     if email:
                         existing_emails.add(email)

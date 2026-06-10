@@ -149,6 +149,7 @@ class Attendee(Base):
     checked_out    = Column(Boolean, default=False, nullable=False)
     checked_out_at = Column(DateTime, nullable=True)
     is_vip         = Column(Boolean, default=False, nullable=False)
+    is_exhibitor   = Column(Boolean, default=False, nullable=False)
     profile_consent = Column(Boolean, default=False, nullable=False)
     badge_issued   = Column(Boolean, default=False, nullable=False)
     badge_issued_at = Column(DateTime, nullable=True)

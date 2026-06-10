@@ -28,6 +28,10 @@
   <button @click="$dispatch('open-map-modal')" class="btn-secondary text-xs px-3 py-1.5">
     <i class="fas fa-upload mr-1"></i> Upload Map
   </button>
+  <button @click="importFromAttendees()" class="btn-secondary text-xs px-3 py-1.5" :disabled="attendeeImportLoading">
+    <i class="fas fa-users mr-1"></i>
+    <span x-text="attendeeImportLoading ? 'Importing…' : 'Import from Attendees'"></span>
+  </button>
   <button @click="$dispatch('open-csv-modal')" class="btn-secondary text-xs px-3 py-1.5">
     <i class="fas fa-file-csv mr-1"></i> Import CSV
   </button>
@@ -297,7 +301,7 @@ function exhibitorApp(eventId) {
     addModal: false, editModal: false, csvModal: false, mapModal: false,
     newCompany: '', newLocation: '', newNotes: '',
     editId: null, editCompany: '', editLocation: '', editNotes: '',
-    addLoading: false, editLoading: false, csvLoading: false, mapLoading: false,
+    addLoading: false, editLoading: false, csvLoading: false, mapLoading: false, attendeeImportLoading: false,
     csvResult: null,
     mapUrl: '{{ ("/static/exhibitor_maps/" ~ event.exhibitor_map_path) if event.exhibitor_map_path else "" }}',
 
@@ -379,6 +383,20 @@ function exhibitorApp(eventId) {
       if (!confirm('Remove this exhibitor?')) return;
       const r = await fetch(`/api/exhibitors/${id}`, { method: 'DELETE' });
       if (r.ok) this.exhibitors = this.exhibitors.filter(e => e.id !== id);
+    },
+
+    async importFromAttendees() {
+      this.attendeeImportLoading = true;
+      try {
+        const r = await fetch(`/api/events/${this.eventId}/exhibitors/import-from-attendees`, { method: 'POST' });
+        const d = await r.json();
+        if (d.added === 0 && d.skipped === 0) {
+          alert(d.message || 'No exhibitor-tagged attendees with company names found.');
+        } else {
+          alert(`Done — added ${d.added} exhibitor${d.added !== 1 ? 's' : ''}${d.skipped ? `, skipped ${d.skipped} already on the list` : ''}.`);
+          if (d.added > 0) await this.refresh();
+        }
+      } finally { this.attendeeImportLoading = false; }
     },
 
     async importCsv() {
