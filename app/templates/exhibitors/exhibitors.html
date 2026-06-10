@@ -34,7 +34,7 @@
   <button @click="$dispatch('open-csv-modal')" class="btn-secondary text-xs px-3 py-1.5">
     <i class="fas fa-file-csv mr-1"></i> Import CSV
   </button>
-  <a :href="`/api/events/${eventId}/exhibitors/report`" class="btn-secondary text-xs px-3 py-1.5">
+  <a href="/api/events/{{ event.id }}/exhibitors/report" class="btn-secondary text-xs px-3 py-1.5">
     <i class="fas fa-download mr-1"></i> Export Report
   </a>
   <button @click="$dispatch('open-add-modal')" class="btn-primary text-xs px-3 py-1.5">
