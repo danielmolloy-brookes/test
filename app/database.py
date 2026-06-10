@@ -49,6 +49,7 @@ def init_db():
     _run_consent_migrations()
     _run_totp_migrations()
     _run_revoked_token_migrations()
+    _run_exhibitor_migrations()
 
     # Ensure QR code directory exists
     os.makedirs(settings.QR_CODE_DIR, exist_ok=True)
@@ -486,4 +487,34 @@ def _run_revoked_token_migrations():
                 )
             """))
             conn.execute(text("CREATE INDEX ix_revoked_tokens_jti ON revoked_tokens (jti)"))
+            conn.commit()
+
+
+def _run_exhibitor_migrations():
+    """Exhibitors table + event columns for the exhibitor tab."""
+    from sqlalchemy import text, inspect
+    insp = inspect(engine)
+    with engine.connect() as conn:
+        # New columns on events
+        event_cols = [c["name"] for c in insp.get_columns("events")]
+        if "exhibitors_enabled" not in event_cols:
+            conn.execute(text("ALTER TABLE events ADD COLUMN exhibitors_enabled BOOLEAN NOT NULL DEFAULT 0"))
+            conn.commit()
+        if "exhibitor_map_path" not in event_cols:
+            conn.execute(text("ALTER TABLE events ADD COLUMN exhibitor_map_path VARCHAR(500)"))
+            conn.commit()
+
+        # Exhibitors table
+        if "exhibitors" not in insp.get_table_names():
+            conn.execute(text("""
+                CREATE TABLE exhibitors (
+                    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id      INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                    company_name  VARCHAR(255) NOT NULL,
+                    location_code VARCHAR(100),
+                    notes         TEXT,
+                    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            conn.execute(text("CREATE INDEX ix_exhibitors_event_id ON exhibitors (event_id)"))
             conn.commit()
