@@ -13,6 +13,28 @@
   <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css" />
   <style type="text/tailwindcss">
     [x-cloak] { display: none !important; }
+    /* Collapsed sidebar — icon-only nav */
+    aside[data-collapsed="true"] .sidebar-link {
+      justify-content: center;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+      font-size: 0;
+      gap: 0;
+    }
+    aside[data-collapsed="true"] .sidebar-link i {
+      font-size: 0.9rem;
+      width: 1.25rem;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    aside[data-collapsed="true"] nav p.text-xs,
+    aside[data-collapsed="true"] nav .border-t p.text-xs {
+      display: none;
+    }
+    aside[data-collapsed="true"] nav .border-t {
+      padding-top: 0.5rem;
+      margin-top: 0.5rem;
+    }
     .sidebar-link { @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-150 text-sm font-medium; }
     .sidebar-link.active { @apply bg-indigo-600 text-white; }
     .btn-primary { @apply inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors; }
@@ -53,15 +75,29 @@
 
   <!-- Sidebar -->
   <aside id="sidebar"
-    class="fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 border-r border-slate-700/50 flex flex-col transform transition-transform duration-200 lg:static lg:translate-x-0"
-    :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+    class="fixed inset-y-0 left-0 z-40 bg-slate-900 border-r border-slate-700/50 flex flex-col transform transition-all duration-200 lg:static lg:translate-x-0"
+    :class="[
+      sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+      sidebarCollapsed ? 'lg:w-16' : 'lg:w-64',
+      'w-64'
+    ]"
+    :data-collapsed="sidebarCollapsed"
   >
-    <!-- Logo -->
-    <div class="flex items-center justify-center px-5 py-4 border-b border-slate-700/50">
+    <!-- Logo / collapse toggle -->
+    <div class="flex items-center border-b border-slate-700/50 transition-all duration-200"
+         :class="sidebarCollapsed ? 'justify-center px-2 py-4' : 'justify-between px-4 py-4'">
       <img src="/static/Branding.png"
            alt="One Thousand Trades Group"
-           class="h-12 w-auto object-contain"
+           class="h-10 w-auto object-contain transition-all duration-200"
+           :class="sidebarCollapsed ? 'hidden' : 'block'"
            />
+      <!-- Collapsed mini-logo placeholder -->
+      <span x-show="sidebarCollapsed" class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">R</span>
+      <button @click="toggleSidebar()" title="Toggle sidebar"
+              class="hidden lg:flex items-center justify-center w-7 h-7 rounded-md text-slate-500 hover:text-white hover:bg-slate-700 transition-colors flex-shrink-0"
+              :class="sidebarCollapsed ? 'mt-0' : ''">
+        <i class="fas text-xs" :class="sidebarCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
+      </button>
     </div>
 
     <!-- Navigation -->
@@ -218,9 +254,10 @@
     </nav>
 
     <!-- User footer -->
-    <div class="px-3 py-4 border-t border-slate-700/50 space-y-2">
-      <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800">
-        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
+    <div class="border-t border-slate-700/50 transition-all duration-200" :class="sidebarCollapsed ? 'px-2 py-3' : 'px-3 py-4'">
+      <!-- Expanded footer -->
+      <div x-show="!sidebarCollapsed" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800">
+        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
           {% if user and user.is_developer %}bg-indigo-800{% elif user and user.is_org_admin %}bg-indigo-600{% else %}bg-emerald-700{% endif %}">
           {{ (user.display_name or user.username)[0].upper() if user else 'A' }}
         </div>
@@ -240,6 +277,16 @@
           <i class="fas fa-sign-out-alt"></i>
         </a>
       </div>
+      <!-- Collapsed footer — icon-only -->
+      <div x-show="sidebarCollapsed" x-cloak class="flex flex-col items-center gap-2">
+        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
+          {% if user and user.is_developer %}bg-indigo-800{% elif user and user.is_org_admin %}bg-indigo-600{% else %}bg-emerald-700{% endif %}">
+          {{ (user.display_name or user.username)[0].upper() if user else 'A' }}
+        </div>
+        <a href="/logout" class="text-slate-500 hover:text-red-400 text-xs transition-colors" title="Logout">
+          <i class="fas fa-sign-out-alt"></i>
+        </a>
+      </div>
     </div>
   </aside>
 
@@ -255,8 +302,14 @@
   <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
     <!-- Top bar -->
     <header class="bg-slate-800/50 border-b border-slate-700/50 px-4 py-3 flex items-center gap-3 lg:px-6">
+      <!-- Mobile hamburger -->
       <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden text-slate-400 hover:text-white p-1">
         <i class="fas fa-bars text-lg"></i>
+      </button>
+      <!-- Desktop collapse toggle -->
+      <button @click="toggleSidebar()" title="Toggle sidebar"
+              class="hidden lg:flex items-center justify-center w-8 h-8 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+        <i class="fas text-sm" :class="sidebarCollapsed ? 'fa-bars' : 'fa-bars'"></i>
       </button>
       <div class="flex-1 min-w-0">
         {% block page_header %}{% endblock %}
@@ -287,9 +340,15 @@
   function appState() {
     return {
       sidebarOpen: false,
+      sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
       toast: { show: false, message: '', type: 'info' },
 
       closeSidebar() { this.sidebarOpen = false; },
+
+      toggleSidebar() {
+        this.sidebarCollapsed = !this.sidebarCollapsed;
+        localStorage.setItem('sidebarCollapsed', this.sidebarCollapsed);
+      },
 
       showToast(message, type = 'info', duration = 4000) {
         this.toast = { show: true, message, type };
