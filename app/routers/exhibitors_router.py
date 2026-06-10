@@ -25,7 +25,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.auth import check_event_access, get_current_user_api, org_filter, require_admin, require_admin_api
+from app.auth import check_event_access, get_current_user_api, org_filter, require_admin, require_admin_api, require_login
 from app.database import get_db
 from app.models import Attendee, Event, Exhibitor, User
 
@@ -86,11 +86,17 @@ async def exhibitors_page(
     request: Request,
     event_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_login),
 ):
     if isinstance(current_user, RedirectResponse):
         return current_user
-    event = org_filter(db.query(Event), current_user, Event).filter(Event.id == event_id).first()
+    # Admins/developers see all events in their org; check-in staff need explicit event permission
+    if current_user.is_admin:
+        event = org_filter(db.query(Event), current_user, Event).filter(Event.id == event_id).first()
+    else:
+        if not check_event_access(current_user, event_id, db):
+            raise HTTPException(status_code=403, detail="Access denied.")
+        event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     if not event.exhibitors_enabled:
@@ -200,13 +206,12 @@ async def delete_exhibitor(
 async def manual_checkin_exhibitor(
     exhibitor_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_api),
+    current_user: User = Depends(get_current_user_api),
 ):
     exhibitor = db.query(Exhibitor).filter(Exhibitor.id == exhibitor_id).first()
     if not exhibitor:
         raise HTTPException(status_code=404, detail="Exhibitor not found")
-    event = org_filter(db.query(Event), current_user, Event).filter(Event.id == exhibitor.event_id).first()
-    if not event:
+    if not check_event_access(current_user, exhibitor.event_id, db):
         raise HTTPException(status_code=403, detail="Access denied.")
     exhibitor.manually_checked_in = True
     exhibitor.manually_checked_in_at = datetime.utcnow()
@@ -219,13 +224,12 @@ async def manual_checkin_exhibitor(
 async def undo_checkin_exhibitor(
     exhibitor_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin_api),
+    current_user: User = Depends(get_current_user_api),
 ):
     exhibitor = db.query(Exhibitor).filter(Exhibitor.id == exhibitor_id).first()
     if not exhibitor:
         raise HTTPException(status_code=404, detail="Exhibitor not found")
-    event = org_filter(db.query(Event), current_user, Event).filter(Event.id == exhibitor.event_id).first()
-    if not event:
+    if not check_event_access(current_user, exhibitor.event_id, db):
         raise HTTPException(status_code=403, detail="Access denied.")
     exhibitor.manually_checked_in = False
     exhibitor.manually_checked_in_at = None

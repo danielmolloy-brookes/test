@@ -2,6 +2,7 @@
 {% block title %}Exhibitors — {{ event.name }}{% endblock %}
 {% block nav_exhibitors %}active{% endblock %}
 {% block nav_exhibitors_admin %}active{% endblock %}
+{% block nav_exhibitors_staff %}active{% endblock %}
 
 {% block head %}
 <style>
@@ -20,13 +21,15 @@
 {% block header_actions %}
 <div class="flex items-center gap-2" x-data>
   {% if event.exhibitor_map_path %}
+  {# View Map — visible to everyone #}
   <a href="/static/exhibitor_maps/{{ event.exhibitor_map_path }}" target="_blank"
      class="btn-secondary text-xs px-3 py-1.5">
     <i class="fas fa-map mr-1"></i> View Map
   </a>
   {% endif %}
+  {% if user.is_admin %}
   <button @click="$dispatch('open-map-modal')" class="btn-secondary text-xs px-3 py-1.5">
-    <i class="fas fa-upload mr-1"></i> Upload Map
+    <i class="fas fa-upload mr-1"></i> {% if event.exhibitor_map_path %}Replace Map{% else %}Upload Map{% endif %}
   </button>
   <button @click="$dispatch('open-attendee-picker')" class="btn-secondary text-xs px-3 py-1.5">
     <i class="fas fa-users mr-1"></i> Import from Attendees
@@ -40,6 +43,7 @@
   <button @click="$dispatch('open-add-modal')" class="btn-primary text-xs px-3 py-1.5">
     <i class="fas fa-plus mr-1"></i> Add Exhibitor
   </button>
+  {% endif %}
 </div>
 {% endblock %}
 

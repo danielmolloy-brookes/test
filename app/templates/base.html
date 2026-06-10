@@ -206,6 +206,11 @@
         <a href="/events/{{ event.id }}/monitor" class="sidebar-link {% block nav_monitor_staff %}{% endblock %}">
           <i class="fas fa-tv w-4"></i> Check-In Monitor
         </a>
+        {% if event.exhibitors_enabled %}
+        <a href="/events/{{ event.id }}/exhibitors" class="sidebar-link {% block nav_exhibitors_staff %}{% endblock %}">
+          <i class="fas fa-store w-4"></i> Exhibitors
+        </a>
+        {% endif %}
       </div>
       {% endif %}
       {% endif %}
