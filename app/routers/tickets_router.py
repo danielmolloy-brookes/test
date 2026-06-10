@@ -259,10 +259,11 @@ async def get_ticket_job(
 
 # ── Background worker ─────────────────────────────────────────
 
-# Limit concurrent GHL calls so we don't hammer the API or hit rate limits.
-# 8 concurrent means ~16 GHL requests in flight at once (2 per attendee).
-# At ~400ms each that's ~40 attendees/second — 2000 attendees in ~50 seconds.
-_GHL_SEMAPHORE = asyncio.Semaphore(8)
+# Limit concurrent GHL calls to avoid hitting the GHL rate limit (429s).
+# 4 concurrent means ~8 GHL requests in flight at once (2 per attendee: update + workflow).
+# GHL rate-limits at ~100 req/min; 4 concurrent at ~500ms each = ~480 req/min peak,
+# but the retry logic in ghl_service handles any 429s that slip through.
+_GHL_SEMAPHORE = asyncio.Semaphore(4)
 
 
 async def _send_one(

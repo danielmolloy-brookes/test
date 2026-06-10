@@ -3,6 +3,7 @@ GoHighLevel API v2 integration service.
 
 Docs: https://highlevel.stoplight.io/docs/integrations/
 """
+import asyncio
 import logging
 from typing import Optional, List, Dict, Any
 
@@ -31,6 +32,25 @@ def _check_credentials(api_key: Optional[str], location_id: Optional[str]) -> No
         raise ValueError("No GHL API Key set for this event. Edit the event to add one.")
     if not location_id:
         raise ValueError("No GHL Location ID set for this event. Edit the event to add one.")
+
+
+async def _ghl_request_with_retry(client: httpx.AsyncClient, method: str, url: str, **kwargs) -> httpx.Response:
+    """
+    Make an httpx request and retry up to 4 times on GHL 429 rate-limit responses.
+    Respects the Retry-After header when present; otherwise uses exponential backoff
+    starting at 2 seconds (2, 4, 8, 16).
+    """
+    backoff = 2.0
+    for attempt in range(5):
+        response = await getattr(client, method)(url, **kwargs)
+        if response.status_code != 429 or attempt == 4:
+            return response
+        retry_after = response.headers.get("Retry-After")
+        wait = float(retry_after) if retry_after else backoff
+        logger.warning(f"GHL 429 on {url} — waiting {wait:.1f}s before retry {attempt + 1}/4")
+        await asyncio.sleep(wait)
+        backoff *= 2
+    return response  # return final response regardless
 
 
 # ── Contacts ─────────────────────────────────────────────────
@@ -175,12 +195,13 @@ async def fetch_contact(api_key: str, contact_id: str) -> Optional[Dict[str, Any
 # ── Tags ─────────────────────────────────────────────────────
 
 async def add_tags(api_key: str, contact_id: str, tags: List[str]) -> bool:
-    """Add tags to a GHL contact."""
+    """Add tags to a GHL contact. Retries on 429."""
     if not api_key or not tags:
         return False
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(
+            response = await _ghl_request_with_retry(
+                client, "post",
                 f"{GHL_BASE}/contacts/{contact_id}/tags",
                 headers=_headers(api_key),
                 json={"tags": tags},
@@ -197,12 +218,13 @@ async def add_tags(api_key: str, contact_id: str, tags: List[str]) -> bool:
 
 
 async def remove_tags(api_key: str, contact_id: str, tags: List[str]) -> bool:
-    """Remove tags from a GHL contact."""
+    """Remove tags from a GHL contact. Retries on 429."""
     if not api_key or not tags:
         return False
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.delete(
+            response = await _ghl_request_with_retry(
+                client, "delete",
                 f"{GHL_BASE}/contacts/{contact_id}/tags",
                 headers=_headers(api_key),
                 json={"tags": tags},
@@ -221,12 +243,13 @@ async def remove_tags(api_key: str, contact_id: str, tags: List[str]) -> bool:
 # ── Contact Update ───────────────────────────────────────────
 
 async def update_contact(api_key: str, contact_id: str, fields: Dict[str, Any]) -> bool:
-    """Update contact fields (including custom fields)."""
+    """Update contact fields (including custom fields). Retries on 429."""
     if not api_key:
         return False
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.put(
+            response = await _ghl_request_with_retry(
+                client, "put",
                 f"{GHL_BASE}/contacts/{contact_id}",
                 headers=_headers(api_key),
                 json=fields,
@@ -244,14 +267,15 @@ async def update_contact(api_key: str, contact_id: str, fields: Dict[str, Any]) 
 # ── Workflow Trigger ─────────────────────────────────────────
 
 async def trigger_workflow(api_key: str, contact_id: str, workflow_id: str) -> Optional[str]:
-    """Returns None on success, or an error string on failure."""
+    """Returns None on success, or an error string on failure. Retries on 429."""
     if not api_key:
         return "No GHL API Key set for this event."
     if not workflow_id:
         return "No workflow ID provided"
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(
+            response = await _ghl_request_with_retry(
+                client, "post",
                 f"{GHL_BASE}/contacts/{contact_id}/workflow/{workflow_id}",
                 headers=_headers(api_key),
                 json={},
