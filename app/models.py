@@ -110,6 +110,9 @@ class Event(Base):
     # Profile sharing consent feature
     profiles_disabled          = Column(Boolean, default=False, nullable=False)
     profile_consent_enabled    = Column(Boolean, default=False, nullable=False)
+    # Exhibitors
+    exhibitors_enabled         = Column(Boolean, default=False, nullable=False)
+    exhibitor_map_path         = Column(String(500), nullable=True)
     # Event branding
     brand_primary              = Column(String(7), default="#6366f1", nullable=False)
     brand_secondary            = Column(String(7), default="#4f46e5", nullable=False)
@@ -312,3 +315,17 @@ class SlotBooking(Base):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name or ''}".strip()
+
+
+# ── Exhibitors ────────────────────────────────────────────────
+
+class Exhibitor(Base):
+    """A company exhibiting at an event. Checked-in status is derived from attendee company matches."""
+    __tablename__ = "exhibitors"
+
+    id            = Column(Integer, primary_key=True, index=True)
+    event_id      = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_name  = Column(String(255), nullable=False)
+    location_code = Column(String(100), nullable=True)
+    notes         = Column(Text, nullable=True)
+    created_at    = Column(DateTime, default=datetime.utcnow)

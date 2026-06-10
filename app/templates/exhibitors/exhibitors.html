@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+{% block title %}Exhibitors — {{ event.name }}{% endblock %}
+{% block nav_exhibitors %}active{% endblock %}
+{% block nav_exhibitors_admin %}active{% endblock %}
+
+{% block head %}
+<style>
+  .exhibitor-card         { transition: all 0.3s ease; }
+  .exhibitor-card.checked { opacity: 0.6; }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<div>
+  <p class="text-xs text-slate-500 uppercase tracking-wider font-semibold">{{ event.name }}</p>
+  <h1 class="text-lg font-bold text-white">Exhibitors</h1>
+</div>
+{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2" x-data>
+  {% if event.exhibitor_map_path %}
+  <a href="/static/exhibitor_maps/{{ event.exhibitor_map_path }}" target="_blank"
+     class="btn-secondary text-xs px-3 py-1.5">
+    <i class="fas fa-map mr-1"></i> View Map
+  </a>
+  {% endif %}
+  <button @click="$dispatch('open-map-modal')" class="btn-secondary text-xs px-3 py-1.5">
+    <i class="fas fa-upload mr-1"></i> Upload Map
+  </button>
+  <button @click="$dispatch('open-csv-modal')" class="btn-secondary text-xs px-3 py-1.5">
+    <i class="fas fa-file-csv mr-1"></i> Import CSV
+  </button>
+  <button @click="$dispatch('open-add-modal')" class="btn-primary text-xs px-3 py-1.5">
+    <i class="fas fa-plus mr-1"></i> Add Exhibitor
+  </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="exhibitorApp({{ event.id }})" x-init="load()" @open-add-modal.window="addModal = true" @open-csv-modal.window="csvModal = true" @open-map-modal.window="mapModal = true">
+
+  <!-- Stats bar -->
+  <div class="flex items-center gap-6 mb-6 px-1">
+    <div>
+      <span class="text-2xl font-bold text-white" x-text="total"></span>
+      <span class="text-slate-400 text-sm ml-1">total</span>
+    </div>
+    <div>
+      <span class="text-2xl font-bold text-emerald-400" x-text="checkedInCount"></span>
+      <span class="text-slate-400 text-sm ml-1">checked in</span>
+    </div>
+    <div>
+      <span class="text-2xl font-bold text-slate-400" x-text="total - checkedInCount"></span>
+      <span class="text-slate-400 text-sm ml-1">awaiting</span>
+    </div>
+    <div class="flex-1"></div>
+    <!-- Search -->
+    <div class="relative">
+      <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+      <input type="text" x-model="search" placeholder="Search exhibitors…"
+             class="pl-8 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-56"/>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div x-show="loading" class="flex items-center justify-center py-20 text-slate-500">
+    <i class="fas fa-spinner fa-spin mr-2"></i> Loading exhibitors…
+  </div>
+
+  <!-- Empty state -->
+  <div x-show="!loading && filtered.length === 0 && exhibitors.length === 0" class="text-center py-20">
+    <i class="fas fa-store text-4xl text-slate-600 mb-3 block"></i>
+    <p class="text-slate-400 font-medium">No exhibitors yet</p>
+    <p class="text-slate-500 text-sm mt-1">Add exhibitors manually or import a CSV file.</p>
+    <button @click="addModal = true" class="btn-primary mt-4 text-sm">
+      <i class="fas fa-plus mr-1"></i> Add First Exhibitor
+    </button>
+  </div>
+
+  <!-- Awaiting section -->
+  <template x-if="!loading && awaiting.length > 0">
+    <div class="mb-8">
+      <h2 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+        Awaiting <span class="ml-1 text-slate-400" x-text="'(' + awaiting.length + ')'"></span>
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <template x-for="ex in awaiting" :key="ex.id">
+          <div class="exhibitor-card bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col gap-2 group relative">
+            <!-- Location badge -->
+            <div class="flex items-start justify-between gap-2">
+              <h3 class="font-semibold text-white text-sm leading-tight" x-text="ex.company_name"></h3>
+              <span x-show="ex.location_code"
+                    class="shrink-0 text-xs font-bold bg-indigo-900/50 text-indigo-300 border border-indigo-700 rounded-md px-2 py-0.5"
+                    x-text="ex.location_code"></span>
+            </div>
+            <!-- Rep count -->
+            <p class="text-xs text-slate-500">
+              <span x-text="ex.rep_count"></span>
+              <span x-text="ex.rep_count === 1 ? ' rep registered' : ' reps registered'"></span>
+            </p>
+            <!-- Notes -->
+            <p x-show="ex.notes" class="text-xs text-slate-400 italic" x-text="ex.notes"></p>
+            <!-- Actions -->
+            <div class="flex items-center gap-2 mt-auto pt-2 border-t border-slate-700">
+              <button @click="openEdit(ex)" class="text-xs text-slate-400 hover:text-indigo-400 transition-colors">
+                <i class="fas fa-pen mr-1"></i>Edit
+              </button>
+              <button @click="deleteExhibitor(ex.id)" class="text-xs text-slate-400 hover:text-red-400 transition-colors ml-auto">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <!-- Checked-in section -->
+  <template x-if="!loading && checkedIn.length > 0">
+    <div>
+      <h2 class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-3">
+        <i class="fas fa-check-circle mr-1"></i>
+        Checked In <span class="ml-1" x-text="'(' + checkedIn.length + ')'"></span>
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        <template x-for="ex in checkedIn" :key="ex.id">
+          <div class="exhibitor-card checked bg-emerald-950/40 border border-emerald-800/50 rounded-xl p-4 flex flex-col gap-2">
+            <div class="flex items-start justify-between gap-2">
+              <h3 class="font-semibold text-emerald-300 text-sm leading-tight flex items-center gap-1.5">
+                <i class="fas fa-check-circle text-emerald-400 text-xs"></i>
+                <span x-text="ex.company_name"></span>
+              </h3>
+              <span x-show="ex.location_code"
+                    class="shrink-0 text-xs font-bold bg-emerald-900/50 text-emerald-400 border border-emerald-700 rounded-md px-2 py-0.5"
+                    x-text="ex.location_code"></span>
+            </div>
+            <!-- Who checked in -->
+            <template x-for="rep in ex.checked_in_reps" :key="rep.id">
+              <p class="text-xs text-emerald-500">
+                <i class="fas fa-user mr-1"></i>
+                <span x-text="rep.full_name"></span>
+                <span x-show="rep.checked_in_at" class="text-emerald-700 ml-1"
+                      x-text="'· ' + new Date(rep.checked_in_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})"></span>
+              </p>
+            </template>
+            <p x-show="ex.notes" class="text-xs text-emerald-700 italic" x-text="ex.notes"></p>
+            <div class="flex items-center gap-2 mt-auto pt-2 border-t border-emerald-800/50">
+              <button @click="openEdit(ex)" class="text-xs text-emerald-700 hover:text-emerald-400 transition-colors">
+                <i class="fas fa-pen mr-1"></i>Edit
+              </button>
+              <button @click="deleteExhibitor(ex.id)" class="text-xs text-emerald-700 hover:text-red-400 transition-colors ml-auto">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <!-- ── Add Exhibitor Modal ─────────────────────────────── -->
+  <div x-show="addModal" x-cloak @keydown.escape.window="addModal = false"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <div @click.outside="addModal = false" class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <h2 class="text-lg font-bold text-white mb-4">Add Exhibitor</h2>
+      <form @submit.prevent="addExhibitor()">
+        <div class="space-y-3">
+          <div>
+            <label class="label">Company Name <span class="text-red-400">*</span></label>
+            <input x-model="newCompany" type="text" class="input" placeholder="e.g. Acme Corp" required autofocus/>
+          </div>
+          <div>
+            <label class="label">Location / Stand Code</label>
+            <input x-model="newLocation" type="text" class="input" placeholder="e.g. A12 or Stand 4"/>
+          </div>
+          <div>
+            <label class="label">Notes</label>
+            <textarea x-model="newNotes" class="input" rows="2" placeholder="Optional notes…"></textarea>
+          </div>
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button type="submit" class="btn-primary flex-1" :disabled="addLoading">
+            <i class="fas fa-plus mr-1"></i>
+            <span x-text="addLoading ? 'Adding…' : 'Add Exhibitor'"></span>
+          </button>
+          <button type="button" @click="addModal = false" class="btn-secondary px-4">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Edit Exhibitor Modal ────────────────────────────── -->
+  <div x-show="editModal" x-cloak @keydown.escape.window="editModal = false"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <div @click.outside="editModal = false" class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <h2 class="text-lg font-bold text-white mb-4">Edit Exhibitor</h2>
+      <form @submit.prevent="saveEdit()">
+        <div class="space-y-3">
+          <div>
+            <label class="label">Company Name</label>
+            <input x-model="editCompany" type="text" class="input" required/>
+          </div>
+          <div>
+            <label class="label">Location / Stand Code</label>
+            <input x-model="editLocation" type="text" class="input" placeholder="e.g. A12"/>
+          </div>
+          <div>
+            <label class="label">Notes</label>
+            <textarea x-model="editNotes" class="input" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button type="submit" class="btn-primary flex-1" :disabled="editLoading">
+            <i class="fas fa-save mr-1"></i>
+            <span x-text="editLoading ? 'Saving…' : 'Save Changes'"></span>
+          </button>
+          <button type="button" @click="editModal = false" class="btn-secondary px-4">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── CSV Import Modal ────────────────────────────────── -->
+  <div x-show="csvModal" x-cloak @keydown.escape.window="csvModal = false"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <div @click.outside="csvModal = false" class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <h2 class="text-lg font-bold text-white mb-1">Import from CSV</h2>
+      <p class="text-slate-400 text-sm mb-4">
+        CSV must have a <code class="text-indigo-300">company_name</code> column.
+        Optionally include <code class="text-indigo-300">location_code</code> and <code class="text-indigo-300">notes</code>.
+      </p>
+      <div class="bg-slate-900 rounded-lg p-3 text-xs text-slate-400 font-mono mb-4">
+        company_name,location_code,notes<br>
+        Acme Corp,A12,Corner stand<br>
+        Beta Ltd,B3,
+      </div>
+      <input type="file" x-ref="csvFile" accept=".csv" class="block w-full text-sm text-slate-400
+        file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+        file:text-xs file:font-semibold file:bg-indigo-600 file:text-white
+        hover:file:bg-indigo-700 mb-4"/>
+      <div x-show="csvResult" class="mb-4 p-3 rounded-lg text-sm"
+           :class="csvResult?.errors?.length ? 'bg-amber-900/30 border border-amber-700 text-amber-300' : 'bg-emerald-900/30 border border-emerald-700 text-emerald-300'">
+        <span x-text="csvResult ? `Added ${csvResult.added}, skipped ${csvResult.skipped}` : ''"></span>
+        <template x-if="csvResult?.errors?.length">
+          <ul class="mt-1 text-xs list-disc ml-4">
+            <template x-for="e in csvResult.errors"><li x-text="e"></li></template>
+          </ul>
+        </template>
+      </div>
+      <div class="flex gap-3">
+        <button @click="importCsv()" class="btn-primary flex-1" :disabled="csvLoading">
+          <i class="fas fa-upload mr-1"></i>
+          <span x-text="csvLoading ? 'Importing…' : 'Import'"></span>
+        </button>
+        <button @click="csvModal = false; csvResult = null" class="btn-secondary px-4">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Map Upload Modal ────────────────────────────────── -->
+  <div x-show="mapModal" x-cloak @keydown.escape.window="mapModal = false"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <div @click.outside="mapModal = false" class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <h2 class="text-lg font-bold text-white mb-1">Upload Exhibitor Map</h2>
+      <p class="text-slate-400 text-sm mb-4">Accepted formats: JPG, PNG, GIF, WebP, PDF. Max 20 MB.</p>
+      <input type="file" x-ref="mapFile" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf"
+             class="block w-full text-sm text-slate-400
+               file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+               file:text-xs file:font-semibold file:bg-indigo-600 file:text-white
+               hover:file:bg-indigo-700 mb-4"/>
+      <div x-show="mapUrl" class="mb-4">
+        <p class="text-sm text-emerald-400 mb-2"><i class="fas fa-check-circle mr-1"></i> Map uploaded</p>
+        <a :href="mapUrl" target="_blank" class="text-indigo-400 text-xs underline">View uploaded map</a>
+      </div>
+      <div class="flex gap-3">
+        <button @click="uploadMap()" class="btn-primary flex-1" :disabled="mapLoading">
+          <i class="fas fa-upload mr-1"></i>
+          <span x-text="mapLoading ? 'Uploading…' : 'Upload'"></span>
+        </button>
+        <button @click="mapModal = false" class="btn-secondary px-4">Close</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function exhibitorApp(eventId) {
+  return {
+    eventId,
+    exhibitors: [],
+    loading: true,
+    search: '',
+    addModal: false, editModal: false, csvModal: false, mapModal: false,
+    newCompany: '', newLocation: '', newNotes: '',
+    editId: null, editCompany: '', editLocation: '', editNotes: '',
+    addLoading: false, editLoading: false, csvLoading: false, mapLoading: false,
+    csvResult: null,
+    mapUrl: '{{ ("/static/exhibitor_maps/" ~ event.exhibitor_map_path) if event.exhibitor_map_path else "" }}',
+
+    get filtered() {
+      const q = this.search.trim().toLowerCase();
+      if (!q) return this.exhibitors;
+      return this.exhibitors.filter(e => e.company_name.toLowerCase().includes(q) || (e.location_code || '').toLowerCase().includes(q));
+    },
+    get awaiting()    { return this.filtered.filter(e => !e.checked_in); },
+    get checkedIn()   { return this.filtered.filter(e => e.checked_in); },
+    get total()       { return this.exhibitors.length; },
+    get checkedInCount() { return this.exhibitors.filter(e => e.checked_in).length; },
+
+    async load() {
+      this.loading = true;
+      try {
+        const r = await fetch(`/api/events/${this.eventId}/exhibitors`);
+        this.exhibitors = await r.json();
+      } catch(e) { console.error(e); }
+      this.loading = false;
+
+      // Poll every 10 seconds for live check-in updates
+      setInterval(() => this.refresh(), 10000);
+    },
+
+    async refresh() {
+      try {
+        const r = await fetch(`/api/events/${this.eventId}/exhibitors`);
+        this.exhibitors = await r.json();
+      } catch(e) {}
+    },
+
+    async addExhibitor() {
+      if (!this.newCompany.trim()) return;
+      this.addLoading = true;
+      try {
+        const fd = new FormData();
+        fd.append('company_name', this.newCompany.trim());
+        fd.append('location_code', this.newLocation.trim());
+        fd.append('notes', this.newNotes.trim());
+        const r = await fetch(`/api/events/${this.eventId}/exhibitors`, { method: 'POST', body: fd });
+        if (!r.ok) {
+          const d = await r.json();
+          alert(d.detail || 'Failed to add exhibitor');
+          return;
+        }
+        const ex = await r.json();
+        this.exhibitors.push(ex);
+        this.newCompany = this.newLocation = this.newNotes = '';
+        this.addModal = false;
+      } finally { this.addLoading = false; }
+    },
+
+    openEdit(ex) {
+      this.editId = ex.id;
+      this.editCompany = ex.company_name;
+      this.editLocation = ex.location_code || '';
+      this.editNotes = ex.notes || '';
+      this.editModal = true;
+    },
+
+    async saveEdit() {
+      this.editLoading = true;
+      try {
+        const fd = new FormData();
+        fd.append('company_name', this.editCompany.trim());
+        fd.append('location_code', this.editLocation.trim());
+        fd.append('notes', this.editNotes.trim());
+        const r = await fetch(`/api/exhibitors/${this.editId}`, { method: 'PATCH', body: fd });
+        if (!r.ok) { alert('Failed to save'); return; }
+        const updated = await r.json();
+        const idx = this.exhibitors.findIndex(e => e.id === this.editId);
+        if (idx !== -1) this.exhibitors[idx] = updated;
+        this.editModal = false;
+      } finally { this.editLoading = false; }
+    },
+
+    async deleteExhibitor(id) {
+      if (!confirm('Remove this exhibitor?')) return;
+      const r = await fetch(`/api/exhibitors/${id}`, { method: 'DELETE' });
+      if (r.ok) this.exhibitors = this.exhibitors.filter(e => e.id !== id);
+    },
+
+    async importCsv() {
+      const file = this.$refs.csvFile.files[0];
+      if (!file) { alert('Please select a CSV file first'); return; }
+      this.csvLoading = true;
+      this.csvResult = null;
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch(`/api/events/${this.eventId}/exhibitors/csv`, { method: 'POST', body: fd });
+        this.csvResult = await r.json();
+        if (r.ok) await this.refresh();
+      } finally { this.csvLoading = false; }
+    },
+
+    async uploadMap() {
+      const file = this.$refs.mapFile.files[0];
+      if (!file) { alert('Please select a file first'); return; }
+      this.mapLoading = true;
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch(`/api/events/${this.eventId}/exhibitors/map`, { method: 'POST', body: fd });
+        if (!r.ok) { alert('Upload failed'); return; }
+        const d = await r.json();
+        this.mapUrl = d.map_url;
+        window.$dispatch?.('show-toast', { message: 'Map uploaded', type: 'success' });
+      } finally { this.mapLoading = false; }
+    },
+  };
+}
+</script>
+{% endblock %}

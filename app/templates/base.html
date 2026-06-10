@@ -110,6 +110,11 @@
         <a href="/events/{{ event.id }}/attendees" class="sidebar-link {% block nav_guestlist %}{% endblock %}">
           <i class="fas fa-list-alt w-4"></i> Guest List
         </a>
+        {% if event.exhibitors_enabled %}
+        <a href="/events/{{ event.id }}/exhibitors" class="sidebar-link {% block nav_exhibitors %}{% endblock %}">
+          <i class="fas fa-store w-4"></i> Exhibitors
+        </a>
+        {% endif %}
         <a href="/reports/{{ event.id }}" class="sidebar-link {% block nav_reports %}{% endblock %}">
           <i class="fas fa-chart-bar w-4"></i> Reports
         </a>
@@ -159,6 +164,11 @@
         <a href="/events/{{ event.id }}/attendees" class="sidebar-link {% block nav_guestlist_admin %}{% endblock %}">
           <i class="fas fa-list-alt w-4"></i> Guest List
         </a>
+        {% if event.exhibitors_enabled %}
+        <a href="/events/{{ event.id }}/exhibitors" class="sidebar-link {% block nav_exhibitors_admin %}{% endblock %}">
+          <i class="fas fa-store w-4"></i> Exhibitors
+        </a>
+        {% endif %}
         <a href="/reports/{{ event.id }}" class="sidebar-link {% block nav_reports_admin %}{% endblock %}">
           <i class="fas fa-chart-bar w-4"></i> Reports
         </a>

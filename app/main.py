@@ -33,6 +33,7 @@ from app.routers import (
     booking_router,
 )
 from app.routers import totp_router
+from app.routers import exhibitors_router
 
 # ── Logging ──────────────────────────────────────────────────
 logging.basicConfig(
@@ -94,6 +95,7 @@ app.add_middleware(
 os.makedirs("static/qr_codes", exist_ok=True)
 os.makedirs("static/maps", exist_ok=True)
 os.makedirs("static/brand", exist_ok=True)
+os.makedirs("static/exhibitor_maps", exist_ok=True)
 os.makedirs(settings.QR_CODE_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -120,6 +122,7 @@ app.include_router(mobile_router.router)
 app.include_router(mobile_admin_router.router)
 app.include_router(booking_router.router)
 app.include_router(totp_router.router)
+app.include_router(exhibitors_router.router)
 # ⚠️  Must be last — /{ticket_id} is a catch-all path
 app.include_router(profile_router.router)
 

@@ -318,6 +318,7 @@ async def edit_event_submit(
     new_folder_color: str = Form("#6366f1"),
     profile_consent_enabled: str = Form(""),
     profiles_disabled: str = Form(""),
+    exhibitors_enabled: str = Form(""),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -349,6 +350,7 @@ async def edit_event_submit(
     event.folder_id = _resolve_folder(folder_id, new_folder_name, new_folder_color, db, current_user.id, event.org_id)
     event.profiles_disabled = bool(profiles_disabled)
     event.profile_consent_enabled = bool(profile_consent_enabled)
+    event.exhibitors_enabled = bool(exhibitors_enabled)
     db.commit()
     return RedirectResponse(url=f"/events/{event_id}", status_code=303)
 
