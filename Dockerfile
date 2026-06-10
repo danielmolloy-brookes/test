@@ -18,8 +18,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create required directories
-RUN mkdir -p static/qr_codes
+# Create required directories for uploaded files
+# NOTE: On Railway, mount a persistent volume at /app/static to survive deploys.
+#       Dashboard: Project → Service → Volumes → Add Volume → Mount Path: /app/static
+RUN mkdir -p static/qr_codes static/maps static/exhibitor_maps static/brand static/qr_codes
 
 # Expose port
 EXPOSE 8000

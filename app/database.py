@@ -51,8 +51,13 @@ def init_db():
     _run_revoked_token_migrations()
     _run_exhibitor_migrations()
 
-    # Ensure QR code directory exists
+    # Ensure required directories exist
     os.makedirs(settings.QR_CODE_DIR, exist_ok=True)
+    os.makedirs("static/maps", exist_ok=True)
+    os.makedirs("static/exhibitor_maps", exist_ok=True)
+
+    # Clear stale map paths (files wiped by container restart / deployment)
+    _clear_missing_map_paths()
 
     # Seed bootstrap developer user if missing
     db = SessionLocal()
@@ -536,3 +541,52 @@ def _run_exhibitor_migrations():
             """))
             conn.execute(text("CREATE INDEX ix_exhibitors_event_id ON exhibitors (event_id)"))
             conn.commit()
+
+
+def _clear_missing_map_paths():
+    """
+    On startup, null out any map/backdrop/logo DB paths where the file no
+    longer exists on disk.  This happens after a container restart on Railway
+    (ephemeral filesystem) so the UI correctly shows 'Upload' instead of
+    a broken 'View Map' link.
+    """
+    from app.models import Event, Exhibitor  # local import to avoid circular deps
+    from sqlalchemy import text
+    db = SessionLocal()
+    try:
+        # Event space maps and branding assets
+        events = db.query(Event).filter(
+            (Event.map_image_path != None) |
+            (Event.exhibitor_map_path != None) |
+            (Event.brand_backdrop_path != None) |
+            (Event.brand_logo_path != None)
+        ).all()
+        changed = 0
+        for ev in events:
+            if ev.map_image_path and not os.path.exists(ev.map_image_path):
+                ev.map_image_path = None
+                changed += 1
+            if ev.exhibitor_map_path:
+                full = os.path.join("static/exhibitor_maps", ev.exhibitor_map_path)
+                if not os.path.exists(full):
+                    ev.exhibitor_map_path = None
+                    changed += 1
+            if ev.brand_backdrop_path and not os.path.exists(ev.brand_backdrop_path):
+                ev.brand_backdrop_path = None
+                changed += 1
+            if ev.brand_logo_path and not os.path.exists(ev.brand_logo_path):
+                ev.brand_logo_path = None
+                changed += 1
+        if changed:
+            db.commit()
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Startup cleanup: cleared {changed} stale file path(s) from DB "
+                f"(files missing — likely a container restart wiped uploaded files). "
+                f"Re-upload maps/branding to restore them."
+            )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Startup map cleanup failed: {e}")
+    finally:
+        db.close()
