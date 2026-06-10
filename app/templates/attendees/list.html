@@ -21,6 +21,9 @@
     <i class="fas fa-sync" :class="loading && 'fa-spin'"></i>
     <span class="hidden sm:inline">Refresh</span>
   </button>
+  <button @click="clearModal = true" class="btn-danger text-xs">
+    <i class="fas fa-trash-alt mr-1"></i> Clear Attendees
+  </button>
 {% endblock %}
 
 {% block content %}
@@ -249,6 +252,34 @@
     </template>
   </div>
 
+
+  <!-- Clear Attendees confirmation modal -->
+  <div x-show="clearModal" x-cloak @keydown.escape.window="clearModal = false"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <div @click.outside="clearModal = false" class="bg-slate-800 border border-red-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-red-900/50 flex items-center justify-center shrink-0">
+          <i class="fas fa-trash-alt text-red-400"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-white">Clear all attendees?</h2>
+          <p class="text-xs text-slate-400">This cannot be undone.</p>
+        </div>
+      </div>
+      <p class="text-sm text-slate-300 mb-5">
+        All <strong x-text="attendees.length"></strong> attendees will be permanently deleted from this event,
+        including their check-in records and scan logs. You can re-import them afterwards.
+      </p>
+      <div class="flex gap-3">
+        <button @click="clearAllAttendees()" class="btn-danger flex-1" :disabled="clearLoading">
+          <i class="fas fa-trash-alt mr-1"></i>
+          <span x-text="clearLoading ? 'Clearing…' : 'Yes, clear all'"></span>
+        </button>
+        <button @click="clearModal = false" class="btn-secondary px-4">Cancel</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 
@@ -261,6 +292,10 @@ function guestListApp(eventId) {
     search:    '',
     filter:    'all',
     _es:       null,
+
+    // Clear modal state
+    clearModal:   false,
+    clearLoading: false,
 
     // Edit modal state
     editOpen:    false,
@@ -417,6 +452,19 @@ function guestListApp(eventId) {
         const a = this.attendees.find(a => a.id === data.attendee_id);
         if (a) { a.badge_issued = data.badge_issued; }
       }
+    },
+
+    async clearAllAttendees() {
+      this.clearLoading = true;
+      try {
+        const r = await fetch(`/api/events/${eventId}/attendees`, { method: 'DELETE' });
+        const d = await r.json();
+        if (r.ok) {
+          this.attendees = [];
+          this.clearModal = false;
+          window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: `Cleared ${d.deleted} attendee${d.deleted !== 1 ? 's' : ''}`, type: 'success' } }));
+        }
+      } finally { this.clearLoading = false; }
     },
 
     formatTime(iso) {

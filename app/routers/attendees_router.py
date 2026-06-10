@@ -215,6 +215,22 @@ async def delete_attendee(
     return {"ok": True}
 
 
+@router.delete("/api/events/{event_id}/attendees")
+async def clear_attendees(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_api),
+):
+    """Delete all attendees for an event. Irreversible — admin only."""
+    event = org_filter(db.query(Event), current_user, Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    count = db.query(Attendee).filter(Attendee.event_id == event_id).count()
+    db.query(Attendee).filter(Attendee.event_id == event_id).delete()
+    db.commit()
+    return {"ok": True, "deleted": count}
+
+
 @router.post("/api/events/{event_id}/import-ghl")
 async def import_from_ghl(
     event_id: int,
